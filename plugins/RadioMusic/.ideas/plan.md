@@ -168,8 +168,8 @@
 
 **Total:** ~2.5 hours
 
-- Stage 2: 5 min (Foundation - stub in Phase 3)
-- Stage 3: 5 min (Shell - stub in Phase 3)
+- Stage 2: 5 min (Foundation)
+- Stage 3: 5 min (Shell)
 - Stage 4: 95 min (DSP - phased)
   - 4.1: 30 min (File loading & playback)
   - 4.2: 25 min (MIDI triggering)
