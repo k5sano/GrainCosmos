@@ -45,10 +45,29 @@ void GainKnobAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     juce::ScopedNoDenormals noDenormals;
     juce::ignoreUnused(midiMessages);
 
-    // Pass-through for Stage 3 (DSP implementation in Stage 4)
-    // Parameter access example:
-    // auto* gainParam = apvts.getRawParameterValue("GAIN");
-    // float gainDb = gainParam->load();
+    // Clear unused channels
+    for (int i = getTotalNumInputChannels(); i < getTotalNumOutputChannels(); ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
+
+    // Read GAIN parameter (atomic, real-time safe)
+    auto* gainParam = apvts.getRawParameterValue("GAIN");
+    float gainDb = gainParam->load();
+
+    // Convert dB to linear gain
+    float gainLinear;
+    if (gainDb <= -59.9f)
+    {
+        // Special case: treat near-minimum as complete silence
+        gainLinear = 0.0f;
+    }
+    else
+    {
+        // Standard dB to linear conversion: gain = 10^(dB/20)
+        gainLinear = juce::Decibels::decibelsToGain(gainDb);
+    }
+
+    // Apply gain to all channels uniformly
+    buffer.applyGain(gainLinear);
 }
 
 juce::AudioProcessorEditor* GainKnobAudioProcessor::createEditor()
