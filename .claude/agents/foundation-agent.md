@@ -49,14 +49,10 @@ Read the contract files and extract:
 
 Create `plugins/[PluginName]/CMakeLists.txt` with:
 
+**CRITICAL:** Do NOT include `project()` or `add_subdirectory(JUCE)` - JUCE is added at root level
+
 ```cmake
 cmake_minimum_required(VERSION 3.15)
-
-# Extract plugin name from creative-brief.md PRODUCT_NAME
-project([PluginName] VERSION 0.1.0)
-
-# JUCE is located at ../../JUCE relative to plugin directory
-add_subdirectory(../../JUCE JUCE)
 
 # Plugin formats: VST3, AU, Standalone
 juce_add_plugin([PluginName]

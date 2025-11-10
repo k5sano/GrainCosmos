@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(TapeAge VERSION 1.0.0)
-
-# Add JUCE
-add_subdirectory(JUCE)
-
 # Create the plugin target
 juce_add_plugin(TapeAge
     COMPANY_NAME "PluginFreedom"

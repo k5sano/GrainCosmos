@@ -178,26 +178,23 @@ phase_2_build() {
     info "Phase 2: Parallel Build"
     echo "Phase 2: Parallel Build" >> "$LOG_FILE"
 
-    local plugin_dir="plugins/$PLUGIN_NAME"
-    local build_dir="$plugin_dir/build"
+    local build_dir="build"
 
-    # Create or validate build directory
-    info "  - Creating build directory..."
-    if [ "$DRY_RUN" = false ]; then
-        mkdir -p "$build_dir"
+    # One-time configure at root (only if build/ doesn't exist)
+    if [ ! -d "$build_dir" ]; then
+        info "  - Configuring CMake at root with Ninja generator..."
+        if ! execute cmake -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release; then
+            error "CMake configuration failed"
+            echo "ERROR: CMake configuration failed" >> "$LOG_FILE"
+            exit 1
+        fi
+    else
+        info "  - Build directory exists, skipping configure (use --reconfigure to force)"
     fi
 
-    # Configure with CMake
-    info "  - Configuring CMake with Ninja generator..."
-    if ! execute cmake -S "$plugin_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release; then
-        error "CMake configuration failed"
-        echo "ERROR: CMake configuration failed" >> "$LOG_FILE"
-        exit 1
-    fi
-
-    # Build VST3 and AU targets in parallel
-    info "  - Building VST3 + AU in parallel..."
-    if ! execute cmake --build "$build_dir" --config Release --target "${PLUGIN_NAME}_VST3" "${PLUGIN_NAME}_AU" --parallel; then
+    # Build specific plugin using --target flags
+    info "  - Building ${PLUGIN_NAME} (VST3 + AU) in parallel..."
+    if ! execute cmake --build "$build_dir" --config Release --target "${PLUGIN_NAME}_VST3" --target "${PLUGIN_NAME}_AU" --parallel; then
         error "Build failed"
         echo "ERROR: Build failed" >> "$LOG_FILE"
         exit 1
@@ -288,8 +285,8 @@ phase_5_install_new_versions() {
 
     local vst3_dir="$HOME/Library/Audio/Plug-Ins/VST3"
     local au_dir="$HOME/Library/Audio/Plug-Ins/Components"
-    local vst3_build="plugins/$PLUGIN_NAME/build/${PLUGIN_NAME}_artefacts/Release/VST3/$PRODUCT_NAME.vst3"
-    local au_build="plugins/$PLUGIN_NAME/build/${PLUGIN_NAME}_artefacts/Release/AU/$PRODUCT_NAME.component"
+    local vst3_build="build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/VST3/$PRODUCT_NAME.vst3"
+    local au_build="build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/AU/$PRODUCT_NAME.component"
 
     # Verify VST3 artifact exists (skip in dry-run)
     info "  - Locating VST3 build artifact..."

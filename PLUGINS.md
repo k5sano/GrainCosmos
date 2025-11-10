@@ -24,8 +24,33 @@
 
 | Plugin Name | Status | Version | Last Updated |
 |-------------|--------|---------|--------------|
+| GainKnob | 💡 Ideated | - | 2025-11-10 |
 | TapeAge | 💡 Ideated (Paused at Stage 2) | - | 2025-11-10 |
 | RadioMusic | 🚧 Stage 1 | - | 2025-01-10 |
+
+### GainKnob
+
+**Status:** 💡 **Ideated**
+**Created:** 2025-11-10
+**Type:** Audio Effect (Utility)
+
+**Description:**
+Minimalist gain utility plugin with single knob for volume attenuation. Testing UI mockup workflow.
+
+**Parameters (1 total):**
+- Gain: -∞ to 0dB, default 0dB (volume attenuation)
+
+**DSP:** Simple gain multiplication (logarithmic dB to linear conversion).
+
+**GUI:** Single large centered knob with dB value display. Clean, minimal design.
+
+**Lifecycle Timeline:**
+- **2025-11-10:** Creative brief completed
+
+**Known Issues:**
+- None
+
+**Last Updated:** 2025-11-10
 
 ### TapeAge
 

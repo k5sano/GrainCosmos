@@ -149,6 +149,32 @@ controls:
 
 **See:** `references/browser-testing.md` for testing guidelines
 
+## Phase 4.3: Validate WebView Constraints (Before Decision Menu)
+
+**CRITICAL:** Validate generated HTML against WebView constraints before presenting to user.
+
+**Validation checklist:**
+
+```bash
+# Check for forbidden CSS viewport units
+! grep -q "100vh\|100vw\|100dvh\|100svh" v[N]-ui-test.html
+
+# Check for required html/body height
+grep -q "html, body.*height: 100%" v[N]-ui-test.html
+
+# Check for native feel CSS
+grep -q "user-select: none" v[N]-ui-test.html
+
+# Check for context menu disabled
+grep -q 'contextmenu.*preventDefault' v[N]-ui-test.html
+```
+
+**If validation fails:**
+- ❌ REJECT: Regenerate mockup with corrections
+- Do NOT present to user until constraints are satisfied
+
+**See:** `references/ui-design-rules.md` for complete validation rules
+
 ---
 
 ## ⚠️ CRITICAL STOP POINT - Phase 4.5: Design Decision Menu
@@ -179,7 +205,8 @@ Choose (1-4): _
 - **Option 1**: User gives feedback → Return to Phase 3 with new version number (v2, v3, etc.)
 - **Option 2**: User approves → Proceed to Phase 5-8 (generate remaining 5 files)
 - **Option 3**: Offer to open test HTML in browser for interactive review
-- **Option 4**: Handle custom request
+- **Option 4**: Validate WebView constraints (run Phase 4.3 checks again)
+- **Option 5**: Other
 
 **Only execute Phases 5-8 if user chose option 2 (finalize).**
 
@@ -191,17 +218,57 @@ Choose (1-4): _
 
 **Create:** `plugins/[Name]/.ideas/mockups/v[N]-ui.html`
 
-**This HTML IS the plugin UI.** Copy-paste into `Source/ui/index.html` during Stage 5 (GUI).
+**This HTML IS the plugin UI.** It will be copied to `Source/ui/public/index.html` during Stage 5 (GUI).
 
-**Key features:**
+### Generation Strategy
 
-- **Parameter bindings**: `data-param="threshold"` attributes for C++ communication
-- **Value displays**: Synchronized with parameter changes
-- **Responsive layout**: Adapts to window size (if resizable)
-- **WebView API**: Uses `window.juce.postMessage()` for parameter updates
-- **No external dependencies**: Pure HTML/CSS/JS, no npm packages
+**Base template:** `assets/webview-templates/index-template.html`
 
-**See:** `references/html-generation.md` for detailed generation rules
+**Key replacements:**
+
+1. **{{PLUGIN_NAME}}** → Plugin name from creative brief
+2. **{{CONTROL_HTML}}** → Generate controls from finalized YAML/HTML
+3. **{{PARAMETER_BINDINGS}}** → Generate JavaScript bindings for each parameter
+
+### Parameter ID Extraction
+
+Parse finalized HTML for JUCE parameter bindings:
+
+```javascript
+// Extract parameter IDs from JavaScript code patterns
+const parameterIds = [];
+
+// Pattern 1: Juce.getSliderState("PARAM_ID")
+const sliderMatches = html.matchAll(/Juce\.getSliderState\("([^"]+)"\)/g);
+for (const match of sliderMatches) {
+    parameterIds.push({ id: match[1], type: "slider" });
+}
+
+// Pattern 2: Juce.getToggleButtonState("PARAM_ID")
+const toggleMatches = html.matchAll(/Juce\.getToggleButtonState\("([^"]+)"\)/g);
+for (const match of toggleMatches) {
+    parameterIds.push({ id: match[1], type: "toggle" });
+}
+
+// Pattern 3: Juce.getComboBoxState("PARAM_ID")
+const comboMatches = html.matchAll(/Juce\.getComboBoxState\("([^"]+)"\)/g);
+for (const match of comboMatches) {
+    parameterIds.push({ id: match[1], type: "combo" });
+}
+```
+
+**Use extracted IDs to generate matching relay/attachment code in C++.**
+
+### Critical Constraints
+
+**Enforce from `references/ui-design-rules.md`:**
+
+- ❌ NO viewport units: `100vh`, `100vw`, `100dvh`, `100svh`
+- ✅ REQUIRED: `html, body { height: 100%; }`
+- ✅ REQUIRED: `user-select: none` (native feel)
+- ✅ REQUIRED: Context menu disabled in JavaScript
+
+**See:** `references/ui-design-rules.md` for complete constraints
 
 ## Phase 6: Generate C++ Boilerplate (After Finalization Only)
 
@@ -213,15 +280,121 @@ Choose (1-4): _
 
 **Purpose:** WebView integration boilerplate for Stage 5 (GUI).
 
-**Key components:**
+### File 1: v[N]-PluginEditor.h (C++ Header)
 
-- `juce::WebBrowserComponent` setup
-- Parameter binding (C++ ↔ JavaScript)
-- Message handlers (`window.juce.postMessage()` receivers)
-- Value updates (push changes to UI)
-- Window sizing and resizing logic
+**Base template:** `assets/webview-templates/PluginEditor-webview.h`
 
-**See:** `assets/webview-boilerplate.md` for template code
+**Key replacements:**
+
+**{{RELAY_DECLARATIONS}}** → Generate relay declarations for each parameter:
+
+```cpp
+// For each parameter from Phase 5 extraction:
+// - Slider/Knob → std::unique_ptr<juce::WebSliderRelay> [name]Relay;
+// - Toggle      → std::unique_ptr<juce::WebToggleButtonRelay> [name]Relay;
+// - Dropdown    → std::unique_ptr<juce::WebComboBoxRelay> [name]Relay;
+
+// Example:
+std::unique_ptr<juce::WebSliderRelay> gainRelay;
+std::unique_ptr<juce::WebSliderRelay> toneRelay;
+std::unique_ptr<juce::WebToggleButtonRelay> bypassRelay;
+std::unique_ptr<juce::WebComboBoxRelay> modeRelay;
+```
+
+**{{ATTACHMENT_DECLARATIONS}}** → Generate attachment declarations matching relay types:
+
+```cpp
+// Match relay type for each parameter:
+std::unique_ptr<juce::WebSliderParameterAttachment> gainAttachment;
+std::unique_ptr<juce::WebSliderParameterAttachment> toneAttachment;
+std::unique_ptr<juce::WebToggleButtonParameterAttachment> bypassAttachment;
+std::unique_ptr<juce::WebComboBoxParameterAttachment> modeAttachment;
+```
+
+**⚠️ CRITICAL:** Enforce correct member order (relays → webView → attachments) to prevent release build crashes.
+
+### File 2: v[N]-PluginEditor.cpp (C++ Implementation)
+
+**Base template:** `assets/webview-templates/PluginEditor-webview.cpp`
+
+**Key replacements:**
+
+**{{RELAY_CREATION}}** → Generate relay creation code (before WebView):
+
+```cpp
+// For each parameter (use parameter IDs from Phase 5 extraction):
+gainRelay = std::make_unique<juce::WebSliderRelay>("GAIN");
+toneRelay = std::make_unique<juce::WebSliderRelay>("TONE");
+bypassRelay = std::make_unique<juce::WebToggleButtonRelay>("BYPASS");
+modeRelay = std::make_unique<juce::WebComboBoxRelay>("MODE");
+```
+
+**{{WEBVIEW_OPTIONS}}** → Generate WebView options registration:
+
+```cpp
+// For each relay:
+.withOptionsFrom(*gainRelay)
+.withOptionsFrom(*toneRelay)
+.withOptionsFrom(*bypassRelay)
+.withOptionsFrom(*modeRelay)
+```
+
+**{{ATTACHMENT_CREATION}}** → Generate attachment creation code (after WebView):
+
+```cpp
+// For each parameter:
+gainAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+    *audioProcessor.apvts.getParameter("GAIN"),
+    *gainRelay,
+    nullptr  // No undo manager
+);
+toneAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+    *audioProcessor.apvts.getParameter("TONE"),
+    *toneRelay,
+    nullptr
+);
+bypassAttachment = std::make_unique<juce::WebToggleButtonParameterAttachment>(
+    *audioProcessor.apvts.getParameter("BYPASS"),
+    *bypassRelay,
+    nullptr
+);
+modeAttachment = std::make_unique<juce::WebComboBoxParameterAttachment>(
+    *audioProcessor.apvts.getParameter("MODE"),
+    *modeRelay,
+    nullptr
+);
+```
+
+**{{RESOURCE_MAPPING}}** → Generate resource provider mappings for all UI files:
+
+```cpp
+if (url == "/" || url == "/index.html") {
+    return juce::WebBrowserComponent::Resource {
+        BinaryData::index_html,
+        BinaryData::index_htmlSize,
+        "text/html"
+    };
+}
+
+if (url == "/js/juce/index.js") {
+    return juce::WebBrowserComponent::Resource {
+        BinaryData::juce_index_js,
+        BinaryData::juce_index_jsSize,
+        "text/javascript"
+    };
+}
+
+// Add more resources as needed (CSS, images, etc.)
+```
+
+**{{DETERMINE_SIZE_FROM_MOCKUP}}** → Extract window size from YAML or HTML:
+
+```cpp
+setSize(600, 400);  // From YAML window.width/height
+setResizable(false, false);  // From YAML window.resizable
+```
+
+**See:** `assets/webview-templates/` for complete template files
 
 ## Phase 7: Generate Build Configuration (After Finalization Only)
 
@@ -231,25 +404,39 @@ Choose (1-4): _
 
 **Purpose:** CMake snippet to enable WebView support in JUCE.
 
-**Key settings:**
+**IMPORTANT:** This is a SNIPPET to append to existing plugin CMakeLists.txt, NOT a complete CMakeLists.txt file.
+
+### Generation Strategy
+
+**Base template:** `assets/webview-templates/CMakeLists-webview-snippet.cmake`
+
+**Critical constraints:**
+
+- ❌ DO NOT include `project()` declaration (handled by root CMakeLists.txt)
+- ❌ DO NOT include `add_subdirectory(JUCE)` (JUCE added at root level)
+- ✅ This snippet should be APPENDED to the plugin's existing CMakeLists.txt
+- ✅ Plugin CMakeLists.txt should already have `juce_add_plugin()` and basic configuration
+
+**Key customizations:**
+
+1. **List all resources from ui/public/ directory:**
 
 ```cmake
-# Enable WebView
-juce_add_plugin(${PROJECT_NAME}
-    NEEDS_WEB_BROWSER TRUE
-    # ... other settings
-)
-
-# Bundle HTML resources
-juce_add_binary_data(${PROJECT_NAME}Assets
+juce_add_binary_data(${PLUGIN_NAME}_UIResources
     SOURCES
-        Source/ui/index.html
-        Source/ui/style.css
-        Source/ui/script.js
+        Source/ui/public/index.html
+        Source/ui/public/js/juce/index.js
+        # Add any additional CSS, images, fonts discovered in HTML
 )
 ```
 
-**See:** `references/cmake-configuration.md` for complete examples
+2. **Platform-specific configuration:**
+
+- macOS: No additional config (uses WebKit built-in)
+- Windows: Include WebView2 options (if cross-platform)
+- Linux: Include webkit2gtk dependency (if cross-platform)
+
+**See:** `assets/webview-templates/CMakeLists-webview-snippet.cmake` for complete template
 
 ## Phase 8: Generate Integration Checklist (After Finalization Only)
 
@@ -259,15 +446,60 @@ juce_add_binary_data(${PROJECT_NAME}Assets
 
 **Purpose:** Step-by-step guide to integrate UI into plugin during Stage 5.
 
-**Steps:**
+### Checklist Structure
 
-1. Copy HTML to `Source/ui/index.html`
-2. Update `PluginEditor.h` with WebView component
-3. Update `PluginEditor.cpp` with message handlers
-4. Update `CMakeLists.txt` with WebView settings
-5. Build and test standalone
-6. Test in DAW
-7. Troubleshooting common issues
+**Base template:** `assets/integration-checklist-template.md`
+
+**WebView-specific steps:**
+
+```markdown
+## Stage 5 (GUI) Integration Steps
+
+### 1. Copy UI Files
+- [ ] Copy v[N]-ui.html to Source/ui/public/index.html
+- [ ] Copy JUCE frontend library to Source/ui/public/js/juce/index.js
+- [ ] Copy any additional resources (CSS, images, etc.)
+
+### 2. Update PluginEditor Files
+- [ ] Replace PluginEditor.h with v[N]-PluginEditor.h
+- [ ] Verify member order: relays → webView → attachments
+- [ ] Replace PluginEditor.cpp with v[N]-PluginEditor.cpp
+- [ ] Verify initialization order matches member order
+
+### 3. Update CMakeLists.txt
+- [ ] Add juce_add_binary_data for UI resources
+- [ ] Link ${PLUGIN_NAME}_UIResources to plugin
+- [ ] Add JUCE_WEB_BROWSER=1 definition
+- [ ] Add platform-specific config (if cross-platform)
+
+### 4. Build and Test (Debug)
+- [ ] Build succeeds without warnings
+- [ ] Standalone loads WebView (not blank)
+- [ ] Right-click → Inspect works
+- [ ] Console shows no JavaScript errors
+- [ ] window.__JUCE__ object exists
+- [ ] Parameter state objects accessible
+
+### 5. Build and Test (Release)
+- [ ] Release build succeeds without warnings
+- [ ] Release build runs (tests member order logic)
+- [ ] No crashes on plugin reload (test 10 times)
+
+### 6. Test Parameter Binding
+- [ ] Moving UI slider changes audio (verify in DAW)
+- [ ] Changing parameter in DAW updates UI
+- [ ] Parameter values persist after reload
+- [ ] Multiple parameters sync independently
+
+### 7. WebView-Specific Validation
+- [ ] Verify member order in PluginEditor.h (relays → webView → attachments)
+- [ ] Test resource provider returns all files (no 404 in console)
+- [ ] Verify parameter binding (automation/preset recall)
+- [ ] Test in Debug and Release builds
+- [ ] Check for crashes on plugin close (reload 10 times)
+- [ ] CSS does NOT use viewport units (100vh, 100vw)
+- [ ] Native feel CSS present (user-select: none)
+```
 
 **See:** `assets/integration-checklist-template.md` for full template
 

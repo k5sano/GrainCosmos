@@ -163,11 +163,21 @@ Available plugins: [list]
 
 **Technical Implementation:**
 
-**Build system:** Uses **Ninja** generator (recommended for CLI automation)
+**Build system architecture:** Uses **unified root CMakeLists.txt** (critical for Info.plist generation)
+- Root CMakeLists.txt adds JUCE once at project level
+- Auto-discovers all plugins via `file(GLOB)` + `add_subdirectory()`
+- Plugin CMakeLists.txt files do NOT include `project()` or `add_subdirectory(JUCE)`
+- Ensures Info.plist generated with complete metadata (LSMinimumSystemVersion, etc.)
+
+**Why unified architecture:**
+- ❌ **Per-plugin JUCE:** Each plugin adding JUCE breaks Info.plist generation → VST3 invisible in DAWs
+- ✅ **Root JUCE:** JUCE added once at root → Info.plist generated correctly → VST3 visible
+
+**Build generator:** Uses **Ninja** (recommended for CLI automation)
 - Faster than Make for incremental builds
 - Better parallelization than Xcode for command-line use
-- CMake configuration: `cmake -G Ninja -B build`
-- Build command: `cmake --build build --config Release` (cmake detects Ninja automatically)
+- One-time configure: `cmake -B build -G Ninja` (only when build/ doesn't exist)
+- Build command: `cmake --build build --config Release --target PluginName_VST3 --target PluginName_AU`
 
 **Build parallelization:** Uses cmake parallel targets (VST3 + AU build simultaneously)
 ```bash

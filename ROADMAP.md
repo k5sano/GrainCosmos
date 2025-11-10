@@ -493,8 +493,11 @@ Outputs structured diagnostic reports:
 
 **Critical Patterns:**
 
-- **Ninja for speed** (`-G Ninja`)
+- **Unified root CMakeLists.txt** - JUCE added once at root, plugins auto-discovered (fixes Info.plist generation)
+- **Ninja for speed** (`cmake -B build -G Ninja` at root, one-time configure)
+- **Targeted builds** (`--target PluginName_VST3 --target PluginName_AU`)
 - **Parallel targets** (VST3 + AU simultaneously)
+- **Unified artifacts** (`build/plugins/[Name]/[Name]_artefacts/` not per-plugin `build/`)
 - **Cache clearing** (critical for DAW detection)
 - **Timestamp verification** (<60 seconds = fresh build)
 
