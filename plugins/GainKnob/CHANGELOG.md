@@ -2,41 +2,37 @@
 
 All notable changes to GainKnob will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0] - 2025-11-10
 
 ### Added
-
-- Initial release
-- Single GAIN parameter: -60.0 to 0.0 dB (volume attenuation)
-- Special handling: ≤ -59.9 dB displays as "−∞ dB" and produces complete silence
-- WebView UI with animated rotary knob (400x400px)
-- Real-time safe audio processing with denormal protection
+- Initial release of GainKnob utility plugin
+- Single GAIN parameter (-60 to 0 dB range)
+- Clean, minimal WebView-based UI with centered rotary knob
+- dB value display with -∞ representation at minimum
+- Logarithmic gain conversion (dB to linear) using JUCE Decibels class
+- Complete silence at -60 dB (gain multiplier = 0.0)
+- Unity gain at 0 dB (gain multiplier = 1.0)
 - Factory presets:
-  - Unity (0.0 dB)
-  - Subtle Cut (-3.0 dB)
-  - Half Volume (-6.0 dB)
-  - Quiet (-18.0 dB)
-  - Silence (-60.0 dB)
+  - Unity (0 dB - no attenuation)
+  - Subtle Cut (-3 dB)
+  - Half Volume (-6 dB)
+  - Quiet (-12 dB)
+  - Silence (-60 dB)
+- VST3 and AU plugin format support
+- Standalone application mode
+- State save/load functionality via APVTS
+- Real-time safe parameter modulation
+- Denormal protection in audio processing
 
-### Audio Processing
+### Technical Details
+- Built with JUCE 8
+- WebView UI integration using juce-frontend library
+- AudioProcessorValueTreeState for parameter management
+- Time-domain gain multiplication
+- Zero-latency processing
+- Minimal CPU usage
 
-- Logarithmic dB to linear gain conversion using juce::Decibels
-- Applies gain uniformly to all channels
-- Zero latency, sample rate independent
-- CPU usage: < 0.1%
-
-### User Interface
-
-- Modern gradient background (dark blue theme)
-- Large centered rotary knob with SVG rendering
-- Real-time value display with tabular numerals
-- Smooth drag interaction with mouse wheel support
-- Bidirectional parameter sync (UI ↔ DAW automation)
-
-### Validation
-
-- Build: Release mode, VST3 + AU formats
-- Tested: macOS arm64
-- Formats: VST3, AU, Standalone
+[1.0.0]: https://github.com/user/plugin-freedom-system/releases/tag/GainKnob-v1.0.0

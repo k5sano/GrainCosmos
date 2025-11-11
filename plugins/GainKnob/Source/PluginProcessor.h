@@ -29,8 +29,8 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // APVTS for parameter management
-    juce::AudioProcessorValueTreeState apvts;
+    // Public access to parameters for editor
+    juce::AudioProcessorValueTreeState parameters;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

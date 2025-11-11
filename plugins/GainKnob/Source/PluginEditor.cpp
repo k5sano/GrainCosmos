@@ -1,94 +1,141 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
 
+//==============================================================================
+// Constructor - CRITICAL: Initialize in correct order
+//==============================================================================
+
 GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcessor& p)
-    : AudioProcessorEditor(&p)
-    , processorRef(p)
-
-    // Initialize relay with parameter ID (MUST match APVTS ID exactly)
-    , gainRelay("GAIN")
-
-    // Initialize WebView with options
-    , webView(juce::WebBrowserComponent::Options{}
-        .withNativeIntegrationEnabled()  // CRITICAL: Enables JUCE JavaScript library
-        .withResourceProvider([this](const auto& url) { return getResource(url); })
-        .withOptionsFrom(gainRelay)      // Register relay
-    )
-
-    // Initialize attachment (connect parameter to relay)
-    , gainAttachment(*processorRef.apvts.getParameter("GAIN"), gainRelay)
+    : AudioProcessorEditor(&p), processorRef(p)
 {
-    // Add WebView to editor
-    addAndMakeVisible(webView);
+    // ========================================================================
+    // INITIALIZATION SEQUENCE (CRITICAL ORDER)
+    // ========================================================================
+    //
+    // 1. Create relays FIRST (before WebView construction)
+    // 2. Create WebView with relay options
+    // 3. Create parameter attachments LAST (after WebView construction)
+    // ========================================================================
 
-    // Navigate to UI (root of resource provider)
-    webView.goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+    // ------------------------------------------------------------------------
+    // STEP 1: CREATE RELAYS (before WebView!)
+    // ------------------------------------------------------------------------
+    gainRelay = std::make_unique<juce::WebSliderRelay>("GAIN");
 
-    // Set editor size (from UI mockup dimensions)
+    // ------------------------------------------------------------------------
+    // STEP 2: CREATE WEBVIEW (with relay options)
+    // ------------------------------------------------------------------------
+    webView = std::make_unique<juce::WebBrowserComponent>(
+        juce::WebBrowserComponent::Options{}
+            // REQUIRED: Enable JUCE frontend library
+            .withNativeIntegrationEnabled()
+
+            // REQUIRED: Resource provider for embedded files
+            .withResourceProvider([this](const auto& url) {
+                return getResource(url);
+            })
+
+            // OPTIONAL: FL Studio fix (prevents blank screen on focus loss)
+            .withKeepPageLoadedWhenBrowserIsHidden()
+
+            // REQUIRED: Register relay with WebView
+            .withOptionsFrom(*gainRelay)
+    );
+
+    // ------------------------------------------------------------------------
+    // STEP 3: CREATE PARAMETER ATTACHMENTS (after WebView!)
+    // ------------------------------------------------------------------------
+    gainAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+        *processorRef.parameters.getParameter("GAIN"),
+        *gainRelay,
+        nullptr  // No undo manager
+    );
+
+    // ------------------------------------------------------------------------
+    // WEBVIEW SETUP
+    // ------------------------------------------------------------------------
+
+    // Navigate to root (loads index.html via resource provider)
+    webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+
+    // Make WebView visible
+    addAndMakeVisible(*webView);
+
+    // ------------------------------------------------------------------------
+    // WINDOW SIZE
+    // ------------------------------------------------------------------------
     setSize(400, 400);
+    setResizable(false, false);
 }
+
+//==============================================================================
+// Destructor
+//==============================================================================
 
 GainKnobAudioProcessorEditor::~GainKnobAudioProcessorEditor()
 {
-    // Destructor - members destroyed in reverse declaration order
-    // This order ensures attachments stop using webView before it's destroyed
+    // Members automatically destroyed in reverse order:
+    // 1. gainAttachment (stops calling evaluateJavascript)
+    // 2. webView (safe, attachment is gone)
+    // 3. gainRelay (safe, nothing using it)
 }
+
+//==============================================================================
+// AudioProcessorEditor Overrides
+//==============================================================================
 
 void GainKnobAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    // WebView handles all painting
+    // WebView fills the entire editor, no custom painting needed
     juce::ignoreUnused(g);
 }
 
 void GainKnobAudioProcessorEditor::resized()
 {
-    // WebView fills entire editor
-    webView.setBounds(getLocalBounds());
+    // Make WebView fill the entire editor bounds
+    webView->setBounds(getLocalBounds());
 }
 
-std::optional<juce::WebBrowserComponent::Resource>
-GainKnobAudioProcessorEditor::getResource(const juce::String& url)
+//==============================================================================
+// Resource Provider (JUCE 8 Required Pattern)
+//==============================================================================
+
+std::optional<juce::WebBrowserComponent::Resource> GainKnobAudioProcessorEditor::getResource(
+    const juce::String& url
+)
 {
-    // Map URLs to embedded resources
-    auto resource = url.replaceCharacter('\\', '/');
+    // Helper lambda to convert raw binary data to vector<byte>
+    auto makeVector = [](const char* data, int size) {
+        return std::vector<std::byte>(
+            reinterpret_cast<const std::byte*>(data),
+            reinterpret_cast<const std::byte*>(data) + size
+        );
+    };
 
-    // Root "/" → index.html
-    if (resource == "/" || resource.isEmpty())
-        resource = "/index.html";
-
-    // Remove leading slash for BinaryData lookup
-    auto path = resource.substring(1);
-
-    // Find in binary data (files embedded from ui/public/)
-    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
-    {
-        if (path == BinaryData::namedResourceList[i])
-        {
-            int dataSize = 0;
-            const char* data = BinaryData::getNamedResource(
-                BinaryData::namedResourceList[i], dataSize);
-
-            // Determine MIME type
-            juce::String mimeType = "text/html";
-            if (path.endsWith(".css")) mimeType = "text/css";
-            if (path.endsWith(".js")) mimeType = "application/javascript";
-            if (path.endsWith(".png")) mimeType = "image/png";
-            if (path.endsWith(".jpg") || path.endsWith(".jpeg")) mimeType = "image/jpeg";
-            if (path.endsWith(".svg")) mimeType = "image/svg+xml";
-
-            // Convert raw pointer to vector<std::byte> for JUCE 8
-            std::vector<std::byte> dataVector;
-            dataVector.reserve(static_cast<size_t>(dataSize));
-            for (int j = 0; j < dataSize; ++j)
-                dataVector.push_back(static_cast<std::byte>(data[j]));
-
-            return juce::WebBrowserComponent::Resource{
-                std::move(dataVector), mimeType
-            };
-        }
+    // Handle root URL (redirect to index.html)
+    if (url == "/" || url == "/index.html") {
+        return juce::WebBrowserComponent::Resource {
+            makeVector(BinaryData::index_html, BinaryData::index_htmlSize),
+            juce::String("text/html")
+        };
     }
 
-    // Resource not found
-    juce::Logger::writeToLog("Resource not found: " + url);
+    // JUCE frontend library
+    if (url == "/js/juce/index.js") {
+        return juce::WebBrowserComponent::Resource {
+            makeVector(BinaryData::index_js, BinaryData::index_jsSize),
+            juce::String("text/javascript")
+        };
+    }
+
+    // JUCE native interop checker
+    if (url == "/js/juce/check_native_interop.js") {
+        return juce::WebBrowserComponent::Resource {
+            makeVector(BinaryData::check_native_interop_js, BinaryData::check_native_interop_jsSize),
+            juce::String("text/javascript")
+        };
+    }
+
+    // 404 - Resource not found
     return std::nullopt;
 }
