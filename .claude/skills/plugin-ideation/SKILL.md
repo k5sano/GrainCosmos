@@ -36,6 +36,7 @@ Tell me about your plugin idea. Share as much or as little as you want—I'll as
 ```
 
 **Extract from response:**
+- Plugin name (if mentioned)
 - Plugin type (effect/synth/utility)
 - Core concept and sonic goals
 - Parameter ideas and ranges
@@ -169,9 +170,39 @@ New gaps for Batch 2:
 - Tempo sync? (Tier 3)
 - Specific Space Echo model reference? (Tier 3)
 
+### Phase 3.7: Plugin Name (if not yet provided)
+
+**Before creating documents, check if plugin name was provided at any point during conversation.**
+
+If name NOT yet provided, ask via AskUserQuestion:
+
+```
+Question:
+  question: "What should this plugin be called?"
+  header: "Plugin name"
+  options:
+    - label: "[SuggestedName1]", description: "Based on core concept"
+    - label: "[SuggestedName2]", description: "Alternative naming"
+    - label: "[SuggestedName3]", description: "Different approach"
+    - label: "Other", description: "I'll provide my own name"
+
+Where suggested names are generated from the core concept.
+Examples:
+- Tape delay → "TapeAge", "VintageDelay", "FlutterDelay"
+- 808 clap → "ClapMachine", "FlamClap", "808Clap"
+- Distortion → "SaturnDrive", "WarmClip", "HarmonicDirt"
+```
+
+**If name already provided** (in initial description or in additional context), skip this phase entirely.
+
+**Name validation:**
+- Must be UpperCamelCase (e.g., "TapeAge", not "tape age" or "tapeage")
+- No spaces or special characters
+- If user provides invalid name, suggest cleaned version
+
 ### Phase 4: Document Creation
 
-When user says "finalize" or chooses option 2, create:
+When user chooses "finalize" and name is confirmed, create:
 
 **File:** `plugins/[PluginName]/.ideas/creative-brief.md`
 
