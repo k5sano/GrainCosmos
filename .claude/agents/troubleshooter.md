@@ -245,7 +245,7 @@ Confidence: HIGH
 
 **Don't over-research:**
 
-- If Level 0 is obvious → fix it immediately
+- If Level 0 is obvious → provide fix immediately
 - If Level 1 has high-confidence match → use validated solution
 - If Level 2 official docs are clear → follow official guidance
 - Only reach Level 3 if genuinely complex/unusual
