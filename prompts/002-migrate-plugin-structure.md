@@ -112,11 +112,18 @@ mkdir -p aesthetics
 cp .claude/aesthetics/README.md aesthetics/
 git add aesthetics/README.md
 
-# Create hooks directory and move scripts
+# Create hooks directory and move hook scripts (NOT hooks.json - we create new one)
 mkdir -p hooks
 git mv .claude/hooks/SessionStart.sh hooks/
 git mv .claude/hooks/PostToolUse.sh hooks/
 git mv .claude/hooks/PreCompact.sh hooks/
+git mv .claude/hooks/SubagentStop.sh hooks/
+git mv .claude/hooks/Stop.sh hooks/
+git mv .claude/hooks/UserPromptSubmit.sh hooks/
+git mv .claude/hooks/validators hooks/validators
+
+# Note: .claude/hooks/hooks.json stays in .claude/ (local dev only)
+# We create NEW hooks/hooks.json in Phase 3 for plugin distribution
 ```
 
 **Check the moves:**
@@ -173,23 +180,71 @@ Create `hooks/hooks.json` for plugin distribution:
 
 **Important:** Use `${CLAUDE_PLUGIN_ROOT}` instead of `${CLAUDE_PROJECT_DIR}` for plugin distribution.
 
-## Phase 4: Update Path References in Files
+## Phase 4: Comprehensive Path Updates (Critical)
 
-**In CLAUDE.md at root:**
-Replace all occurrences:
-- `.claude/skills/` → `skills/`
-- `.claude/commands/` → `commands/`
-- `.claude/agents/` → `agents/`
-- `.claude/hooks/` → `hooks/`
+**This phase fixes 59 path references across 15 files. Must be done carefully.**
 
-**Search for any remaining references:**
+### Step 4.1: Automated Path Replacement
+
+Run these find-and-replace commands to update all references:
+
 ```bash
-grep -r "\.claude/" --exclude-dir=.git --exclude="settings.json" . | grep -v ".claude-plugin"
-# Should return minimal results or nothing
+# Update .claude/skills/ → skills/ in all markdown files
+find skills commands agents CLAUDE.md aesthetics/README.md -name "*.md" -type f -exec sed -i '' 's|\.claude/skills/|skills/|g' {} +
+
+# Update .claude/commands/ → commands/
+find skills commands agents CLAUDE.md -name "*.md" -type f -exec sed -i '' 's|\.claude/commands/|commands/|g' {} +
+
+# Update .claude/agents/ → agents/
+find skills commands agents CLAUDE.md -name "*.md" -type f -exec sed -i '' 's|\.claude/agents/|agents/|g' {} +
+
+# Update .claude/hooks/ → hooks/
+find skills commands agents CLAUDE.md -name "*.md" -type f -exec sed -i '' 's|\.claude/hooks/|hooks/|g' {} +
+
+# Update .claude/aesthetics/ → aesthetics/ (important for ui skills)
+find skills commands CLAUDE.md aesthetics/README.md -name "*.md" -type f -exec sed -i '' 's|\.claude/aesthetics/|aesthetics/|g' {} +
+
+# Fix absolute paths (if any exist)
+find skills commands agents CLAUDE.md aesthetics/README.md -name "*.md" -type f -exec sed -i '' 's|/Users/lexchristopherson/Developer/plugin-freedom-system/.claude/|${CLAUDE_PROJECT_DIR}/|g' {} +
 ```
 
-**Update hook scripts if they reference .claude/ paths:**
-Check each hook script and update any internal paths if needed.
+### Step 4.2: Verify Replacements
+
+```bash
+# Count how many .claude/ references remain (should be minimal)
+grep -r "\.claude/" skills commands agents CLAUDE.md aesthetics/README.md --include="*.md" | wc -l
+
+# Show what's left (should only be .claude-plugin references or comments)
+grep -r "\.claude/" skills commands agents CLAUDE.md aesthetics/README.md --include="*.md"
+```
+
+**Expected result:** 0-2 references remaining (only valid ones like mentions in documentation).
+
+### Step 4.3: Manual Review of Critical Files
+
+These files had the most references - verify they updated correctly:
+
+```bash
+# Check these files specifically
+git diff skills/aesthetic-dreaming/SKILL.md | grep -A2 -B2 "claude"
+git diff skills/ui-template-library/SKILL.md | grep -A2 -B2 "claude"
+git diff CLAUDE.md | grep -A2 -B2 "claude"
+```
+
+### Step 4.4: Update Hook Scripts (Shell Scripts)
+
+**Update SubagentStop.sh validator paths:**
+```bash
+sed -i '' 's|\.claude/hooks/validators/|hooks/validators/|g' hooks/SubagentStop.sh
+```
+
+**Verify all hook scripts are clean:**
+```bash
+grep "\.claude/" hooks/*.sh
+# Should return nothing
+```
+
+**If any remain, update manually** - these are shell scripts requiring exact syntax.
 
 ## Phase 5: Update .gitignore
 
@@ -237,6 +292,8 @@ ls -la .claude/
 ```
 .claude/
 ├── settings.json        # Local config only
+├── hooks/
+│   └── hooks.json       # Local hook config (uses CLAUDE_PROJECT_DIR)
 └── aesthetics/          # Your personal aesthetics (gitignored)
     ├── swiss-minimal-001/
     └── vintage-hardware-001/
@@ -416,7 +473,15 @@ plugin-freedom-system/                    (on main branch)
 │   ├── hooks.json                        ✓ NEW
 │   ├── SessionStart.sh                   ✓ MOVED
 │   ├── PostToolUse.sh                    ✓ MOVED
-│   └── PreCompact.sh                     ✓ MOVED
+│   ├── PreCompact.sh                     ✓ MOVED
+│   ├── SubagentStop.sh                   ✓ MOVED
+│   ├── Stop.sh                           ✓ MOVED
+│   ├── UserPromptSubmit.sh               ✓ MOVED
+│   └── validators/                       ✓ MOVED
+│       ├── validate-foundation.py
+│       ├── validate-parameters.py
+│       ├── validate-dsp-components.py
+│       └── validate-gui-bindings.py
 ├── aesthetics/
 │   └── README.md                         ✓ COPIED (empty structure for users)
 ├── scripts/                              ✓ (already at root)

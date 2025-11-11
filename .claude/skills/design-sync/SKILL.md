@@ -352,6 +352,41 @@ Update brief's "UI Vision" section to reflect current mockup (preserve original 
 - Return success (allow implementation)
 - Warn: "Implementation may not match original vision"
 
+### Step 7: Route Back to ui-mockup
+
+**After user resolves drift (or confirms alignment), return to ui-mockup Phase 5.5 decision menu.**
+
+**Present this menu:**
+
+```
+✓ Design-brief alignment complete
+
+What's next?
+1. Finalize and create implementation files (if satisfied and aligned)
+2. Provide more refinements (iterate on design) ← Creates v[N+1]
+3. Test in browser (open v[N]-ui-test.html)
+4. Save as aesthetic template (add to library for reuse)
+5. Finalize AND save aesthetic (do both operations)
+6. Other
+
+Choose (1-6): _
+```
+
+**This is the same decision point as ui-mockup Phase 5.5, minus the "Check alignment" option (already done).**
+
+**Option handling:**
+- **Option 1**: Proceed to ui-mockup Phase 6-9 (generate remaining 5 files)
+- **Option 2**: Return to ui-mockup Phase 2 with new version number (iterate design)
+- **Option 3**: Open test HTML in browser for review
+- **Option 4**: Invoke ui-template-library "save" operation
+- **Option 5**: Save aesthetic, then proceed to Phase 6-9
+- **Option 6**: Other
+
+**Why route back:**
+- Validates the design is aligned before generating implementation files
+- Prevents generating C++ boilerplate for misaligned mockups
+- Maintains checkpoint protocol (user decides next action after validation)
+
 ---
 
 ## Integration with ui-mockup

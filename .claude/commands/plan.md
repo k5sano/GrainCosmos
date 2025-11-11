@@ -58,10 +58,7 @@ Present numbered menu of eligible plugins or offer to create new plugin.
 /plan [PluginName]
 ```
 
-Verify preconditions, then invoke plugin-planning skill using the Skill tool:
-```
-Skill tool with skill: "plugin-planning"
-```
+Verify preconditions, then invoke the plugin-planning skill.
 
 ## The Planning Stages
 

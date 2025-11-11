@@ -5,3 +5,6 @@ backups/
 
 # OS files
 .DS_Store
+
+# Prompts
+prompts/

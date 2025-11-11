@@ -444,8 +444,8 @@ Choose (1-8): _
 **Option handling:**
 - **Option 1**: Check alignment → Invoke design-sync skill to validate mockup ↔ creative brief consistency
   - Detects drift (parameter mismatches, missing features, style divergence)
-  - Returns with findings, user resolves any issues
-  - After resolution, return to this decision menu
+  - User resolves any issues within design-sync
+  - **design-sync routes back to Phase 5.5 decision menu after completion** (see design-sync Step 7)
 - **Option 2**: User gives feedback → Return to Phase 2 with new version number (v2, v3, etc.)
 - **Option 3**: User approves → Proceed to Phase 6-9 (generate remaining 5 files)
 - **Option 4**: Save aesthetic → Invoke ui-template-library skill with "save" operation
