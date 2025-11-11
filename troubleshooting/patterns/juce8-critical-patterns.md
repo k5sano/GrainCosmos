@@ -529,6 +529,59 @@ rm ~/Library/Preferences/Ableton/*/PluginDatabase.cfg
 
 ---
 
+## 15. WebView valueChangedEvent Callback - No Parameters Passed (CRITICAL)
+
+### ❌ WRONG (Parameters undefined, knobs don't update)
+```javascript
+// JavaScript assumes callback receives value parameter
+driveState.valueChangedEvent.addListener((newValue) => {
+    // newValue is UNDEFINED! JUCE doesn't pass callback parameters
+    updateKnobVisual(driveRotatable, newValue);  // angle = NaN, no rotation
+});
+```
+
+**Result:** Knobs appear at 12 o'clock (0 degrees) or show `NaN` rotation. Parameters don't persist between sessions because visual updates fail.
+
+### ✅ CORRECT
+```javascript
+// Call getNormalisedValue() INSIDE the callback to read from state
+driveState.valueChangedEvent.addListener(() => {
+    const value = driveState.getNormalisedValue();  // Read current value from state
+    updateKnobVisual(driveRotatable, value);
+});
+```
+
+**Why:**
+- JUCE's WebView `valueChangedEvent` is a **notification event**, not a value-passing event
+- The callback receives **no parameters** (or undefined if you declare them)
+- Different from typical JavaScript event patterns (e.g., DOM events)
+- The correct pattern: callback with no params → call `getNormalisedValue()` inside
+- By the time the event fires, the state object has been updated by C++
+
+**Event sequence:**
+1. C++ calls `sendInitialUpdate()` on WebSliderParameterAttachment
+2. JUCE WebView bridge updates JavaScript SliderState object
+3. `valueChangedEvent` fires (no callback parameters)
+4. JavaScript callback reads value via `getNormalisedValue()`
+5. Visual update receives valid number (0-1 normalized)
+
+**Common mistake:**
+Assuming callback works like DOM events: `addEventListener('change', (event) => event.value)`
+
+**Reference implementation:**
+GainKnob example shows this pattern:
+```javascript
+this.paramState.valueChangedEvent.addListener(() => {
+    this.render();  // render() internally calls getNormalisedValue()
+});
+```
+
+**When:** ALL WebView-based plugins using parameter bindings
+
+**Documented in:** `troubleshooting/gui-issues/webview-parameter-undefined-event-callback-TapeAge-20251111.md`
+
+---
+
 ## Usage Instructions
 
 ### For Subagents (foundation-agent, shell-agent, dsp-agent, gui-agent)

@@ -4,6 +4,22 @@ All notable changes to TapeAge will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.2] - 2025-11-11
+
+### Fixed
+
+- WebView parameter knobs now correctly display saved values on plugin reload
+- Fixed `valueChangedEvent` callback to read values via `getNormalisedValue()` instead of using undefined callback parameters
+- Eliminated race condition where JavaScript called `getNormalisedValue()` before C++ sent initial values
+- Knobs now load directly at saved positions instead of animating from zero
+
+### Technical Details
+
+- Root cause: JUCE's `valueChangedEvent` is a notification event that doesn't pass callback parameters
+- Solution: Call `getNormalisedValue()` inside the callback to read from state object
+- Documented in: troubleshooting/gui-issues/webview-parameter-undefined-event-callback-TapeAge-20251111.md
+- Added to Required Reading: Pattern #15 in juce8-critical-patterns.md
+
 ## [1.0.1] - 2025-11-11
 
 ### Fixed
