@@ -28,7 +28,7 @@
 | TapeAge | 📦 Installed | 1.0.2 | 2025-11-11 |
 | ClapMachine | 💡 Ideated | - | 2025-11-10 |
 | DriveVerb | 🚧 Stage 2 | - | 2025-11-11 |
-| FlutterVerb | 💡 Ideated | - | 2025-11-11 |
+| FlutterVerb | 🚧 Stage 1 | - | 2025-11-11 |
 
 ### GainKnob
 
@@ -226,7 +226,7 @@ Algorithmic reverb with warm tape saturation applied only to the wet signal, plu
 
 ### FlutterVerb
 
-**Status:** 🚧 **Stage 0**
+**Status:** 🚧 **Stage 1**
 **Created:** 2025-11-11
 **Type:** Audio Effect (Reverb)
 
@@ -264,6 +264,7 @@ Tape-driven plate reverb with extreme wow and flutter modulation for textured, a
 - **2025-11-11:** design-sync validation passed (no drift detected)
 - **2025-11-11:** Implementation files generated (ready for `/implement FlutterVerb`)
 - **2025-11-11 (Stage 0):** Research completed - DSP architecture documented
+- **2025-11-11 (Stage 1):** Planning - Complexity 5.0 (phased implementation)
 
 **Known Issues:**
 - None
