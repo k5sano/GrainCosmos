@@ -62,6 +62,7 @@ private:
     // ------------------------------------------------------------------------
     std::unique_ptr<juce::WebSliderRelay> gainRelay;
     std::unique_ptr<juce::WebSliderRelay> panRelay;
+    std::unique_ptr<juce::WebSliderRelay> filterRelay;
 
     // ------------------------------------------------------------------------
     // 2️⃣ WEBVIEW SECOND (created after relays, destroyed before relays)
@@ -73,6 +74,7 @@ private:
     // ------------------------------------------------------------------------
     std::unique_ptr<juce::WebSliderParameterAttachment> gainAttachment;
     std::unique_ptr<juce::WebSliderParameterAttachment> panAttachment;
+    std::unique_ptr<juce::WebSliderParameterAttachment> filterAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GainKnobAudioProcessorEditor)
 };

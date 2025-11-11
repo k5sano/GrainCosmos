@@ -5,6 +5,26 @@ All notable changes to GainKnob will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-11-10
+
+### Added
+- FILTER parameter (-100% to +100%, center at 0% = bypass)
+- DJ-style filter knob (negative = low-pass, positive = high-pass)
+- 2nd-order Butterworth IIR filters (Q=0.707 for smooth response)
+- Cutoff frequency range: 200Hz to 20kHz
+- Smart filter display (OFF at center, LPF/HPF when active)
+- Third rotary knob in UI
+
+### Changed
+- Window width increased from 600px to 800px to accommodate three knobs
+- DSP chain: Filter → Gain → Pan
+- Added juce_dsp module dependency for IIR filtering
+
+### Technical Details
+- Filter bypass when value within ±0.5% of center
+- Real-time coefficient updates (no audio thread allocations)
+- Per-channel filter processing via ProcessorDuplicator
+
 ## [1.1.0] - 2025-11-10
 
 ### Added

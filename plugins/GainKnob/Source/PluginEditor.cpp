@@ -22,6 +22,7 @@ GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcesso
     // ------------------------------------------------------------------------
     gainRelay = std::make_unique<juce::WebSliderRelay>("GAIN");
     panRelay = std::make_unique<juce::WebSliderRelay>("PAN");
+    filterRelay = std::make_unique<juce::WebSliderRelay>("FILTER");
 
     // ------------------------------------------------------------------------
     // STEP 2: CREATE WEBVIEW (with relay options)
@@ -42,6 +43,7 @@ GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcesso
             // REQUIRED: Register relays with WebView
             .withOptionsFrom(*gainRelay)
             .withOptionsFrom(*panRelay)
+            .withOptionsFrom(*filterRelay)
     );
 
     // ------------------------------------------------------------------------
@@ -59,6 +61,12 @@ GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcesso
         nullptr  // No undo manager
     );
 
+    filterAttachment = std::make_unique<juce::WebSliderParameterAttachment>(
+        *processorRef.parameters.getParameter("FILTER"),
+        *filterRelay,
+        nullptr  // No undo manager
+    );
+
     // ------------------------------------------------------------------------
     // WEBVIEW SETUP
     // ------------------------------------------------------------------------
@@ -72,7 +80,7 @@ GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcesso
     // ------------------------------------------------------------------------
     // WINDOW SIZE
     // ------------------------------------------------------------------------
-    setSize(600, 400);  // Wider to accommodate two knobs
+    setSize(800, 400);  // Wider to accommodate three knobs
     setResizable(false, false);
 }
 
@@ -83,9 +91,9 @@ GainKnobAudioProcessorEditor::GainKnobAudioProcessorEditor(GainKnobAudioProcesso
 GainKnobAudioProcessorEditor::~GainKnobAudioProcessorEditor()
 {
     // Members automatically destroyed in reverse order:
-    // 1. panAttachment, gainAttachment (stop calling evaluateJavascript)
+    // 1. filterAttachment, panAttachment, gainAttachment (stop calling evaluateJavascript)
     // 2. webView (safe, attachments are gone)
-    // 3. panRelay, gainRelay (safe, nothing using them)
+    // 3. filterRelay, panRelay, gainRelay (safe, nothing using them)
 }
 
 //==============================================================================

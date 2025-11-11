@@ -23,6 +23,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout GainKnobAudioProcessor::crea
         "%"
     ));
 
+    // FILTER - Float parameter (-100.0 to 100.0, center at 0.0)
+    // 0 = bypass, negative = low-pass, positive = high-pass
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { "FILTER", 1 },
+        "Filter",
+        juce::NormalisableRange<float>(-100.0f, 100.0f, 0.1f, 1.0f),
+        0.0f,
+        "%"
+    ));
+
     return layout;
 }
 
@@ -40,8 +50,14 @@ GainKnobAudioProcessor::~GainKnobAudioProcessor()
 
 void GainKnobAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Initialization will be added in Stage 4
-    juce::ignoreUnused(sampleRate, samplesPerBlock);
+    // Initialize filter processor
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = static_cast<juce::uint32>(samplesPerBlock);
+    spec.numChannels = static_cast<juce::uint32>(getTotalNumOutputChannels());
+
+    filterProcessor.prepare(spec);
+    filterProcessor.reset();
 }
 
 void GainKnobAudioProcessor::releaseResources()
@@ -61,6 +77,40 @@ void GainKnobAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     // Read PAN parameter (atomic read, real-time safe)
     auto* panParam = parameters.getRawParameterValue("PAN");
     float panPercent = panParam->load();
+
+    // Read FILTER parameter (atomic read, real-time safe)
+    auto* filterParam = parameters.getRawParameterValue("FILTER");
+    float filterPercent = filterParam->load();
+
+    // Apply DJ-style filter (if not at center position)
+    if (std::abs(filterPercent) > 0.5f) {
+        float sampleRate = static_cast<float>(getSampleRate());
+
+        if (filterPercent < 0.0f) {
+            // Low-pass filter (negative values)
+            // Map -100% to -1% → 20kHz to 200Hz
+            float normalizedValue = (filterPercent + 100.0f) / 100.0f; // 0.0 to 0.99
+            float cutoffHz = 200.0f + normalizedValue * (20000.0f - 200.0f);
+
+            *filterProcessor.state = *juce::dsp::IIR::Coefficients<float>::makeLowPass(
+                sampleRate, cutoffHz, 0.707f // Q = 0.707 for Butterworth response
+            );
+        } else {
+            // High-pass filter (positive values)
+            // Map 1% to 100% → 200Hz to 20kHz
+            float normalizedValue = filterPercent / 100.0f; // 0.01 to 1.0
+            float cutoffHz = 200.0f + normalizedValue * (20000.0f - 200.0f);
+
+            *filterProcessor.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(
+                sampleRate, cutoffHz, 0.707f // Q = 0.707 for Butterworth response
+            );
+        }
+
+        // Process buffer through filter
+        juce::dsp::AudioBlock<float> block(buffer);
+        juce::dsp::ProcessContextReplacing<float> context(block);
+        filterProcessor.process(context);
+    }
 
     // Convert dB to linear gain multiplier
     float gainLinear;

@@ -91,7 +91,7 @@
             height: 200px;
         }
 
-        #gain-knob, #pan-knob {
+        #gain-knob, #pan-knob, #filter-knob {
             cursor: pointer;
         }
 
@@ -120,6 +120,14 @@
                 <canvas id="pan-knob" width="200" height="200"></canvas>
             </div>
             <div class="knob-value" id="pan-value">C</div>
+        </div>
+
+        <div class="knob-container">
+            <div class="knob-label">Filter</div>
+            <div class="knob-wrapper">
+                <canvas id="filter-knob" width="200" height="200"></canvas>
+            </div>
+            <div class="knob-value" id="filter-value">OFF</div>
         </div>
     </div>
 
@@ -284,7 +292,7 @@
                 let displayText;
 
                 // Custom formatting for pan (center display)
-                if (this.config.unit === "%" && this.config.min === -100 && this.config.max === 100) {
+                if (this.config.paramId === "PAN") {
                     if (Math.abs(actualValue) < 0.5) {
                         displayText = "C";
                     } else if (actualValue < 0) {
@@ -292,7 +300,19 @@
                     } else {
                         displayText = actualValue.toFixed(0) + "R";
                     }
-                } else if (actualValue <= -59.9 && this.config.unit === "dB") {
+                }
+                // Custom formatting for filter (DJ-style display)
+                else if (this.config.paramId === "FILTER") {
+                    if (Math.abs(actualValue) < 0.5) {
+                        displayText = "OFF";
+                    } else if (actualValue < 0) {
+                        displayText = "LPF";
+                    } else {
+                        displayText = "HPF";
+                    }
+                }
+                // Gain display
+                else if (actualValue <= -59.9 && this.config.unit === "dB") {
                     displayText = "−∞ dB";
                 } else {
                     displayText = actualValue.toFixed(this.config.decimals) + " " + this.config.unit;
@@ -318,12 +338,14 @@
         // Get parameter states from C++
         const gainState = Juce.getSliderState("GAIN");
         const panState = Juce.getSliderState("PAN");
+        const filterState = Juce.getSliderState("FILTER");
 
         // Create gain knob
         const gainKnob = new RotaryKnob(
             document.getElementById("gain-knob"),
             gainState,
             {
+                paramId: "GAIN",
                 min: -60.0,
                 max: 0.0,
                 unit: "dB",
@@ -337,6 +359,7 @@
             document.getElementById("pan-knob"),
             panState,
             {
+                paramId: "PAN",
                 min: -100.0,
                 max: 100.0,
                 unit: "%",
@@ -345,9 +368,24 @@
             }
         );
 
+        // Create filter knob
+        const filterKnob = new RotaryKnob(
+            document.getElementById("filter-knob"),
+            filterState,
+            {
+                paramId: "FILTER",
+                min: -100.0,
+                max: 100.0,
+                unit: "%",
+                decimals: 0,
+                valueDisplay: document.getElementById("filter-value")
+            }
+        );
+
         // Initialize displays
         gainKnob.updateValueDisplay();
         panKnob.updateValueDisplay();
+        filterKnob.updateValueDisplay();
 
         // ====================================================================
         // INITIALIZATION COMPLETE
