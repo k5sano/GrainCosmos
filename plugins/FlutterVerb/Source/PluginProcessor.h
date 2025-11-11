@@ -55,8 +55,16 @@ private:
     // APVTS comes AFTER DSP components
     juce::AudioProcessorValueTreeState parameters;
 
+    // Phase 5.3: VU Meter output level tracking (atomic for thread safety)
+    std::atomic<float> currentOutputLevel { 0.0f };
+
     // Parameter layout creation
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
+public:
+    // VU meter accessor (UI thread reads, audio thread writes)
+    float getCurrentOutputLevel() const { return currentOutputLevel.load(); }
+
+private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FlutterVerbAudioProcessor)
 };

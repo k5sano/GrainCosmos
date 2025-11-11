@@ -334,6 +334,27 @@ void FlutterVerbAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 
     // Mix dry and wet samples
     dryWetMixer.mixWetSamples(block);
+
+    // Phase 5.3: Calculate peak level for VU meter (after all DSP processing)
+    float peakLevel = 0.0f;
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        const float* channelData = buffer.getReadPointer(channel);
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            peakLevel = juce::jmax(peakLevel, std::abs(channelData[sample]));
+        }
+    }
+
+    // VU meter ballistics: fast attack, slow release (prevents jittery needle)
+    const float attackCoeff = 0.9f;   // Fast attack (needle rises quickly)
+    const float releaseCoeff = 0.95f; // Slow release (needle falls smoothly)
+
+    float lastLevel = currentOutputLevel.load();
+    if (peakLevel > lastLevel)
+        currentOutputLevel.store(peakLevel * attackCoeff + lastLevel * (1.0f - attackCoeff));
+    else
+        currentOutputLevel.store(peakLevel * (1.0f - releaseCoeff) + lastLevel * releaseCoeff);
 }
 
 juce::AudioProcessorEditor* FlutterVerbAudioProcessor::createEditor()

@@ -168,21 +168,26 @@ void FlutterVerbAudioProcessorEditor::resized()
 
 void FlutterVerbAudioProcessorEditor::timerCallback()
 {
-    // Update VU meter from audio thread data
-    // CRITICAL: Use std::atomic in PluginProcessor for thread-safe communication
-    //
-    // Example (assumes audioProcessor has atomic<float> outputLevel):
-    // float level = audioProcessor.getOutputLevel();  // Atomic read
-    //
-    // webView->emitEventIfBrowserIsVisible("vuMeterUpdate", {
-    //     { "level", level },  // dB value (-60 to 0)
-    //     { "timestamp", juce::Time::currentTimeMillis() }
-    // });
-    //
-    // JavaScript side (in index.html) listens for this event:
-    // window.__JUCE__.backend.addEventListener("vuMeterUpdate", (data) => {
-    //     updateVUNeedle(data.level);
-    // });
+    // Phase 5.3: Update VU meter with real-time audio level
+    if (!webView)
+        return;
+
+    // Get current output level from processor (0.0-1.0, thread-safe atomic read)
+    float level = audioProcessor.getCurrentOutputLevel();
+
+    // Convert to dB for VU meter (-60dB to 0dB range)
+    float levelDb = level > 0.0001f
+        ? juce::Decibels::gainToDecibels(level)
+        : -60.0f;
+
+    // Clamp to VU meter range
+    levelDb = juce::jlimit(-60.0f, 0.0f, levelDb);
+
+    // Normalize to 0.0-1.0 for JavaScript (-60dB = 0.0, 0dB = 1.0)
+    float normalizedLevel = (levelDb + 60.0f) / 60.0f;
+
+    // Send to WebView via custom event
+    webView->emitEventIfBrowserIsVisible("updateVUMeter", normalizedLevel);
 }
 
 //==============================================================================

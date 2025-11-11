@@ -855,26 +855,38 @@
         }
 
         // ----------------------------------------------------------------
-        // VU METER ANIMATION (Simulated - for visual feedback only)
+        // VU METER - REAL-TIME AUDIO LEVEL DISPLAY
         // ----------------------------------------------------------------
 
         const vuNeedle = document.getElementById('vuNeedle');
-        let vuLevel = -60;  // dB
 
-        function animateVU() {
-            // Simulate bouncing VU meter
-            vuLevel += (Math.random() - 0.3) * 5;
-            vuLevel = Math.max(-60, Math.min(0, vuLevel));
+        // Listen for VU meter updates from C++ (emitEventIfBrowserIsVisible)
+        window.updateVUMeter = (normalizedLevel) => {
+            // normalizedLevel: 0.0 = -60dB (left), 1.0 = 0dB (right)
+            updateVUMeterNeedle(normalizedLevel);
+        };
 
-            // Map -60dB to 0dB → -45° to +45° rotation
-            const normalized = (vuLevel + 60) / 60;
-            const angle = -45 + (normalized * 90);
+        function updateVUMeterNeedle(level) {
+            // VU meter range: -45° (left) to +45° (right) = 90° total
+            const minAngle = -45;
+            const maxAngle = 45;
+            const angle = minAngle + (level * (maxAngle - minAngle));
+
+            // Apply rotation with smooth CSS transition (0.05s)
             vuNeedle.style.transform = `translateX(-50%) rotate(${angle}deg)`;
 
-            requestAnimationFrame(animateVU);
+            // Optional: Change color based on level
+            if (level > 0.9) {  // >-6dB (red zone)
+                vuNeedle.style.background = 'linear-gradient(180deg, #ff6666 0%, #ff4444 100%)';
+                vuNeedle.style.boxShadow = '0 0 8px rgba(255, 102, 102, 0.8), 0 0 4px rgba(255, 68, 68, 0.6)';
+            } else if (level > 0.75) {  // >-15dB (yellow zone)
+                vuNeedle.style.background = 'linear-gradient(180deg, #ffcc66 0%, #ffaa44 100%)';
+                vuNeedle.style.boxShadow = '0 0 8px rgba(255, 204, 102, 0.8), 0 0 4px rgba(255, 170, 68, 0.6)';
+            } else {  // Normal (brass)
+                vuNeedle.style.background = 'linear-gradient(180deg, #d4a574 0%, #c49564 100%)';
+                vuNeedle.style.boxShadow = '0 0 8px rgba(212, 165, 116, 0.8), 0 0 4px rgba(212, 165, 116, 0.6)';
+            }
         }
-
-        animateVU();
 
         // ----------------------------------------------------------------
         // INITIALIZE UI FROM CURRENT PARAMETER VALUES
