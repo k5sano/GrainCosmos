@@ -25,7 +25,7 @@
 | Plugin Name | Status | Version | Last Updated |
 |-------------|--------|---------|--------------|
 | GainKnob | 📦 Installed | 1.2.3 | 2025-11-10 |
-| TapeAge | 📦 Installed | 1.0.0 | 2025-11-11 |
+| TapeAge | 📦 Installed | 1.0.1 | 2025-11-11 |
 | ClapMachine | 💡 Ideated | - | 2025-11-10 |
 | DriveVerb | 💡 Ideated | - | 2025-11-11 |
 
@@ -87,7 +87,7 @@ Minimalist gain, pan, and DJ-style filter utility plugin with three knobs for vo
 ### TapeAge
 
 **Status:** 📦 **Installed**
-**Version:** 1.0.0
+**Version:** 1.0.1
 **Created:** 2025-11-10
 **Completed:** 2025-11-11
 **Installed:** 2025-11-11
@@ -128,6 +128,7 @@ Vintage tape saturator with warm saturation and musical degradation (wow/flutter
 - **2025-11-10 (Stage 5):** GUI complete - WebView integrated with 3 parameter bindings and VU meter animation
 - **2025-11-11 (Stage 6):** Validation complete - pluginval passed, factory presets created, ready for installation
 - **2025-11-11 (v1.0.0):** Installed to system folders (VST3 + AU)
+- **2025-11-11 (v1.0.1):** Fixed parameter state persistence in Ableton (getNumPrograms() interference)
 
 **Known Issues:**
 - None
