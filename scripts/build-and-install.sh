@@ -37,19 +37,21 @@ PRODUCT_NAME=""
 DRY_RUN=false
 NO_INSTALL=false
 VERBOSE=false
+RECONFIGURE=false
 LOG_FILE=""
 START_TIME=$(date +%s)
 
 # Parse arguments
 parse_args() {
     if [ $# -eq 0 ]; then
-        echo "Usage: $0 <PluginName> [--dry-run] [--no-install] [--verbose]"
+        echo "Usage: $0 <PluginName> [--dry-run] [--no-install] [--verbose] [--reconfigure]"
         echo ""
         echo "Arguments:"
         echo "  <PluginName>   Name of plugin directory in plugins/"
         echo "  --dry-run      Show commands without executing"
         echo "  --no-install   Build only, skip installation"
         echo "  --verbose      Show detailed output"
+        echo "  --reconfigure  Force CMake reconfiguration (delete build/ first)"
         exit 1
     fi
 
@@ -66,6 +68,9 @@ parse_args() {
                 ;;
             --verbose)
                 VERBOSE=true
+                ;;
+            --reconfigure)
+                RECONFIGURE=true
                 ;;
             *)
                 error "Unknown flag: $1"
@@ -85,7 +90,7 @@ setup_logging() {
     info "Log file: $LOG_FILE"
     echo "Build started at $(date)" > "$LOG_FILE"
     echo "Plugin: $PLUGIN_NAME" >> "$LOG_FILE"
-    echo "Flags: DRY_RUN=$DRY_RUN NO_INSTALL=$NO_INSTALL VERBOSE=$VERBOSE" >> "$LOG_FILE"
+    echo "Flags: DRY_RUN=$DRY_RUN NO_INSTALL=$NO_INSTALL VERBOSE=$VERBOSE RECONFIGURE=$RECONFIGURE" >> "$LOG_FILE"
     echo "---" >> "$LOG_FILE"
 }
 
@@ -179,6 +184,17 @@ phase_2_build() {
     echo "Phase 2: Parallel Build" >> "$LOG_FILE"
 
     local build_dir="build"
+
+    # Handle --reconfigure flag
+    if [ "$RECONFIGURE" = true ] && [ -d "$build_dir" ]; then
+        info "  - Removing build directory for reconfiguration..."
+        if [ "$DRY_RUN" = true ]; then
+            echo "[DRY-RUN] rm -rf \"$build_dir\""
+        else
+            rm -rf "$build_dir"
+            echo "Removed build directory for reconfiguration" >> "$LOG_FILE"
+        fi
+    fi
 
     # One-time configure at root (only if build/ doesn't exist)
     if [ ! -d "$build_dir" ]; then
