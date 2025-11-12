@@ -36,9 +36,17 @@ private:
     juce::dsp::IIR::Filter<float> toneFilter;
     juce::dsp::IIR::Filter<float> noiseColorFilter;
 
+    // Resonators (Phase 4.3) - Fixed peaks for organic body
+    std::array<juce::dsp::IIR::Filter<float>, 3> resonators;
+
     double currentSampleRate = 44100.0;
 
     // Voice state
     bool isClosed = true;  // C1 = closed, D1 = open
     float velocityGain = 1.0f;
+
+public:
+    // Choke support methods (Phase 4.3)
+    bool isOpen() const { return !isClosed; }
+    void forceRelease();
 };

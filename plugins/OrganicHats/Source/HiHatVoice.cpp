@@ -18,6 +18,19 @@ void HiHatVoice::prepareToPlay(double sampleRate, int samplesPerBlock)
     noiseColorFilter.prepare(spec);
     toneFilter.reset();
     noiseColorFilter.reset();
+
+    // Initialize resonators (Phase 4.3) - Fixed peaks at 7kHz, 10kHz, 13kHz
+    const std::array<float, 3> peakFreqs = {7000.0f, 10000.0f, 13000.0f};
+    const float Q = 4.0f;  // Moderate resonance for organic body
+    const float gainDB = -6.0f;  // Subtle enhancement
+
+    for (int i = 0; i < 3; ++i)
+    {
+        resonators[i].prepare(spec);
+        *resonators[i].coefficients = *juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+            sampleRate, peakFreqs[i], Q, juce::Decibels::decibelsToGain(gainDB));
+        resonators[i].reset();
+    }
 }
 
 bool HiHatVoice::canPlaySound(juce::SynthesiserSound* sound)
@@ -82,6 +95,13 @@ void HiHatVoice::stopNote(float, bool allowTailOff)
         clearCurrentNote();
         envelope.reset();
     }
+}
+
+void HiHatVoice::forceRelease()
+{
+    // Force envelope to release phase with fast release (<5ms)
+    // This is called by choke logic when closed hi-hat cuts open hi-hat
+    envelope.noteOff();
 }
 
 void HiHatVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
@@ -149,13 +169,19 @@ void HiHatVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
         }
         // else: bypass (no filtering at 50%)
 
-        // 4. Apply envelope
+        // 4. Apply resonators (Phase 4.3) - Fixed peaks for organic body
+        for (auto& resonator : resonators)
+        {
+            noiseSample = resonator.processSample(noiseSample);
+        }
+
+        // 5. Apply envelope
         float envelopeSample = envelope.getNextSample();
 
-        // 5. Apply velocity scaling
+        // 6. Apply velocity scaling
         float outputSample = noiseSample * envelopeSample * velocityGain;
 
-        // 6. Add to output buffer (don't replace - multiple voices may be active)
+        // 7. Add to output buffer (don't replace - multiple voices may be active)
         for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
         {
             outputBuffer.addSample(channel, startSample + sample, outputSample);

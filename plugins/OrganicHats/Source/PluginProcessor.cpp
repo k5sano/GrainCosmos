@@ -102,6 +102,31 @@ void OrganicHatsAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     // Clear output buffer before synthesiser adds to it
     buffer.clear();
 
+    // Implement choke logic (Phase 4.3): Closed hi-hat cuts open hi-hat
+    for (const auto metadata : midiMessages)
+    {
+        const auto msg = metadata.getMessage();
+        if (msg.isNoteOn())
+        {
+            int noteNumber = msg.getNoteNumber();
+
+            // If closed hi-hat (C1 = 36), choke all active open hi-hats
+            if (noteNumber == 36)
+            {
+                for (int i = 0; i < synth.getNumVoices(); ++i)
+                {
+                    if (auto* voice = dynamic_cast<HiHatVoice*>(synth.getVoice(i)))
+                    {
+                        if (voice->isOpen() && voice->isVoiceActive())
+                        {
+                            voice->forceRelease();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Render MIDI-triggered hi-hat voices
     synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 }
