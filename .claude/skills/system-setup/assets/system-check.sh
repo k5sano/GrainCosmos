@@ -481,8 +481,68 @@ EOF
 }
 
 # Main command dispatcher
-if [[ -n "$TEST_MODE" ]]; then
-    return_test_data "$TEST_MODE"
+# Handle test mode first - need to check both first and last arg
+TEST_ARG=""
+for arg in "$@"; do
+    if [[ "$arg" == --test=* ]]; then
+        TEST_ARG="${arg#--test=}"
+        break
+    fi
+done
+
+if [[ -n "$TEST_ARG" ]]; then
+    # In test mode, return appropriate mock data based on command
+    case "${1:-}" in
+        --detect-platform)
+            echo '{"platform":"darwin","platform_version":"15.6.1","arch":"arm64"}'
+            ;;
+        --check-python)
+            echo '{"found":true,"version":"3.11.5","path":"/usr/local/bin/python3","meets_minimum":true}'
+            ;;
+        --check-xcode)
+            echo '{"found":true,"path":"/Library/Developer/CommandLineTools","version":"16.0.0"}'
+            ;;
+        --check-cmake)
+            echo '{"found":true,"version":"3.27.4","path":"/usr/local/bin/cmake","meets_minimum":true}'
+            ;;
+        --check-juce)
+            # This is where test scenarios differ
+            case "$TEST_ARG" in
+                missing-juce)
+                    echo '{"found":false,"checked_paths":["/Users/'$USER'/JUCE","/Applications/JUCE","/usr/local/JUCE"]}'
+                    ;;
+                old-versions)
+                    echo '{"found":true,"path":"/Applications/JUCE","version":"7.0.5","meets_minimum":false,"required":"8.0.0"}'
+                    ;;
+                custom-paths)
+                    echo '{"found":false,"checked_paths":["/Users/'$USER'/JUCE","/Applications/JUCE","/usr/local/JUCE"]}'
+                    ;;
+                fresh-system)
+                    echo '{"found":false,"checked_paths":["/Users/'$USER'/JUCE","/Applications/JUCE","/usr/local/JUCE"]}'
+                    ;;
+                partial-python)
+                    echo '{"found":true,"path":"/Applications/JUCE","version":"8.0.3","meets_minimum":true}'
+                    ;;
+                *)
+                    echo '{"found":true,"path":"/Applications/JUCE","version":"8.0.3","meets_minimum":true}'
+                    ;;
+            esac
+            ;;
+        --check-pluginval)
+            echo '{"found":true,"version":"1.0.3","path":"/usr/local/bin/pluginval"}'
+            ;;
+        --validate-juce-path)
+            # For test mode, validate the path was provided but return success
+            if [ -n "$2" ]; then
+                echo '{"valid":true,"path":"'"$2"'","version":"8.0.3"}'
+            else
+                echo '{"valid":false,"error":"No path provided"}'
+            fi
+            ;;
+        *)
+            return_test_data "$TEST_ARG"
+            ;;
+    esac
     exit 0
 fi
 
