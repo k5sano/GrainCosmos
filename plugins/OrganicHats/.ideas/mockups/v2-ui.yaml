@@ -6,7 +6,7 @@ plugin:
 
 window:
   width: 600
-  height: 480
+  height: 590
   resizable: false
   title: "OrganicHats"
 
@@ -163,4 +163,4 @@ notes:
   - "Digital readouts show exact values below each knob"
   - "Power LED indicates active state with pulse animation"
   - "Mounting holes at all four corners"
-  - "Window size 600x480 for proper panel containment"
+  - "Window size 600x590 (calculated: 57px header + 48px padding + 477px panel = 582px minimum)"
