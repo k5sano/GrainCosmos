@@ -10,33 +10,7 @@
 **Decision:** If confident solution found → return immediately
 **Escalate to Level 2 if:** No solution or low confidence
 
-### Level 1 Process
-
-1. **Search local troubleshooting/**
-
-   ```bash
-   # Search by keywords
-   grep -r "[topic keywords]" troubleshooting/
-
-   # Check by-symptom categories
-   ls troubleshooting/by-symptom/[category]/
-   ```
-
-2. **Quick Context7 lookup**
-
-   - Query for relevant JUCE class/API
-   - Check method signatures
-   - Review basic usage examples
-
-3. **Confidence assessment**
-
-   - HIGH: Found exact match in local docs OR clear API docs
-   - MEDIUM: Found similar issue but needs adaptation
-   - LOW: No relevant matches
-
-4. **Decision point**
-   - HIGH confidence: Present solution, offer to apply
-   - MEDIUM/LOW: Escalate to Level 2
+See SKILL.md for detailed Level 1 process (lines 177-192).
 
 ---
 
@@ -307,3 +281,29 @@ What's next?
 - Using wrong model (Sonnet for L1-2, Opus for L3)
 - Forgetting extended thinking at L3 (critical for synthesis)
 - Over-researching simple problems (stop at HIGH confidence)
+
+---
+
+## Performance Budgets
+
+Performance expectations and success rates by level.
+
+**Level 1:**
+- Time: 5-10 min
+- Extended thinking: No
+- Success rate: 40% of problems (known solutions)
+
+**Level 2:**
+- Time: 15-30 min
+- Extended thinking: No
+- Success rate: 40% of problems (documented solutions)
+
+**Level 3:**
+- Time: 30-60 min
+- Extended thinking: Yes (15k budget)
+- Success rate: 20% of problems (novel/complex)
+
+**Overall:**
+- Average resolution time: 15 min (weighted by success rates)
+- 80% of problems solved at Level 1-2 (fast)
+- 20% require Level 3 (deep research justified)

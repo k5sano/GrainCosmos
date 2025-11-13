@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: Multi-agent parallel investigation for complex JUCE problems
-model: claude-opus-4-1-20250805
+model: claude-opus-4-1-20250805 # Base skill model (overridden by Task tool at Level 3)
 allowed-tools:
   - Read # Local troubleshooting docs
   - Grep # Search docs
@@ -9,17 +9,21 @@ allowed-tools:
   - WebSearch # Web research (Level 2-3)
 preconditions:
   - Problem is non-trivial (quick Context7 lookup insufficient)
-extended-thinking: false # Note: Level 3 enforcement happens via <delegation_rule> gate below, not this YAML setting
+extended-thinking: false # Levels 1-2 use standard reasoning
 timeout: 3600 # 60 min max
+---
 
-<extended_thinking_gate>
-IF level = 3:
-  MUST enable extended-thinking with 15,000 token budget
-  MUST verify activation before spawning subagents
-ELSE IF level IN [1, 2]:
-  MUST NOT enable extended-thinking
-  Use standard reasoning for quick/moderate research
-</extended_thinking_gate>
+## Architecture Note: Model and Extended Thinking
+
+**Levels 1-2**: Run on base skill model (Sonnet 4.5) with standard reasoning
+- YAML `extended-thinking: false` prevents automatic extended thinking
+- Fast, token-efficient for 80% of problems
+
+**Level 3**: Spawn subagents with explicit model override via Task tool
+- Task tool parameters: `model: claude-opus-4-1-20250805` and `extended_thinking: 15000`
+- YAML settings do NOT apply to subagents - Task parameters override
+- This ensures Levels 1-2 stay fast/cheap while Level 3 gets maximum reasoning power
+
 ---
 
 # deep-research Skill
@@ -85,18 +89,9 @@ deep-research MUST invoke plugin-improve via Skill tool.
 
 ## Entry Points
 
-**Invoked by:**
+Invoked by: troubleshooter (Level 4), `/research [topic]`, build-automation "Investigate", or natural language ("research [topic]").
 
-- troubleshooter agent (Level 4 investigation)
-- User manual: `/research [topic]`
-- build-automation "Investigate" option
-- Natural language: "research [topic]", "investigate [problem]"
-
-**Entry parameters:**
-
-- **Topic/question**: What to research
-- **Context** (optional): Plugin name, stage, error message
-- **Starting level** (optional): Skip to Level 2/3 if explicitly requested
+**Parameters**: Topic/question (required), context (optional: plugin name, stage, error), starting level (optional: `/research [topic] --level 2` to skip Level 1).
 
 ---
 
@@ -159,7 +154,7 @@ deep-research MUST invoke plugin-improve via Skill tool.
 </level>
 
 <enforcement_rules>
-- NEVER skip Level 1 unless user explicitly requests starting at Level 2/3
+- NEVER skip Level 1 unless user explicitly requests starting at Level 2/3 (via `/research [topic] --level 2` or "Start with Level 2 investigation of [topic]")
 - NEVER use serial investigation at Level 3 (must be parallel)
 - NEVER use Sonnet at Level 3 (must be Opus)
 - NEVER forget extended thinking at Level 3
@@ -211,6 +206,13 @@ See `references/research-protocol.md#level-2-moderate-investigation` for detaile
 - Solution adaptable with minor modifications
 </success_criteria>
 
+<critical_sequence name="level2_moderate_investigation" enforce_order="strict">
+<step number="1" required="true">Context7 deep-dive (module docs, examples, patterns)</step>
+<step number="2" required="true">JUCE forum search via WebSearch</step>
+<step number="3" required="true">GitHub issue search (juce-framework/JUCE)</step>
+<step number="4" required="true">Synthesize findings from multiple sources</step>
+<step number="5" required="true">Assess confidence (HIGH/MEDIUM/LOW)</step>
+
 <decision_gate name="level2_outcome" enforce="strict">
 IF confidence IN [HIGH, MEDIUM]:
   THEN present decision menu with solution options
@@ -227,6 +229,7 @@ ELSE IF problem_type = "novel_implementation":
   OUTPUT notification: "Level 2: Novel problem requires parallel investigation. Escalating to Level 3..."
   PROCEED to Level 3 process
 </decision_gate>
+</critical_sequence>
 
 ---
 
@@ -244,6 +247,9 @@ NEVER use: Sonnet at Level 3 (insufficient capacity for synthesis)
 
 <subagent_requirement>
 MUST spawn 2-3 parallel research subagents via Task tool.
+- Spawn 2 subagents for focused problems with clear scope
+- Spawn 3 subagents for complex multi-faceted problems requiring diverse approaches
+
 MUST invoke ALL subagents in PARALLEL (single response with multiple Task calls).
 NEVER invoke subagents sequentially (defeats 60-min → 20-min optimization).
 
@@ -253,6 +259,7 @@ Each subagent runs in fresh context with focused research goal.
 <timing_expectation>
 3 parallel subagents × 20 min each = 20 min total wall time
 NOT 60 min serial time
+Note: Assumes Task tool parallel execution capability
 </timing_expectation>
 </delegation_rule>
 
@@ -266,6 +273,21 @@ See `references/research-protocol.md#level-3-deep-research` for detailed process
 - HIGH confidence after synthesis
 </success_criteria>
 
+<critical_sequence name="level3_deep_research" enforce_order="strict">
+<step number="1" required="true">Spawn 2-3 parallel research subagents via Task tool (identify research approaches first)</step>
+<step number="2" required="true">Each subagent investigates focused aspect (different sources, approaches, or angles)</step>
+<step number="3" required="true">Wait for all subagents to complete</step>
+<step number="4" required="true">Synthesize findings using extended thinking (15k budget)</step>
+<step number="5" required="true">Generate comprehensive report using assets/level3-report-template.md</step>
+<step number="6" required="true">Present decision menu with recommendations</step>
+
+<decision_gate name="level3_outcome" enforce="strict">
+ALWAYS present decision menu (no further escalation possible)
+OPTIONS: Apply solution | Review findings | Try alternative | Document findings | Other
+WAIT for user selection
+</decision_gate>
+</critical_sequence>
+
 ---
 
 ## Report Generation
@@ -276,6 +298,8 @@ Each level generates a structured report using templates in `assets/`:
 - Level 3: `assets/level3-report-template.md`
 
 Reports include: findings summary, confidence assessment, recommended solution, and source references.
+
+**Progress tracking**: Use `assets/research-progress.md` template to track investigation progress across levels.
 
 ---
 
@@ -331,182 +355,82 @@ ALWAYS wait for user response before continuing.
 
 ## Decision Menus
 
-After each level, present decision menu (user controls depth) per checkpoint_protocol above.
+After each level, present decision menu using checkpoint protocol format:
+
+**Example (Level 1 - HIGH confidence):**
+```
+✓ Level 1 complete (found solution in local docs)
+
+Solution: [Brief description of solution]
+Source: troubleshooting/[category]/[file].md
+Confidence: HIGH (exact match)
+
+What's next?
+
+1. Apply solution (recommended)
+2. Review full findings
+3. Continue deeper - Escalate to Level 2
+4. Other
+
+Choose (1-4): _
+```
+
+**Example (Level 2 - MEDIUM confidence):**
+```
+✓ Level 2 complete (found 2 potential solutions)
+
+Recommended: [Solution 1 name]
+Alternative: [Solution 2 name]
+Confidence: MEDIUM (verified by JUCE forum + docs)
+
+What's next?
+
+1. Apply recommended solution
+2. Review all findings
+3. Try alternative approach
+4. Continue deeper - Escalate to Level 3
+5. Other
+
+Choose (1-5): _
+```
+
+**Example (Level 3 - comprehensive investigation):**
+```
+✓ Level 3 complete (parallel investigation)
+
+Investigated 3 approaches:
+- Approach A: [Brief description] (recommended)
+- Approach B: [Brief description] (viable alternative)
+- Approach C: [Brief description] (not recommended)
+
+Confidence: HIGH after synthesis
+
+What's next?
+
+1. Apply recommended solution (recommended)
+2. Review detailed comparison
+3. Try alternative approach B
+4. Document findings
+5. Other
+
+Choose (1-5): _
+```
+
+NEVER use AskUserQuestion tool for decision menus. Always use inline numbered lists with "Choose (1-N): _" format matching checkpoint protocol.
+
+See `<state_requirement name="checkpoint_protocol">` below for response handling.
 
 ---
 
-## Integration with troubleshooter
+## Integration Points
 
-**troubleshooter Level 4:**
-
-When troubleshooter agent exhausts Levels 0-3, it invokes deep-research:
-
-```markdown
-## troubleshooter.md - Level 4
-
-If Levels 0-3 insufficient, escalate to deep-research skill:
-
-"I need to investigate this more deeply. Invoking deep-research skill..."
-
-[Invoke deep-research with problem context]
-
-deep-research handles:
-
-- Graduated research protocol (Levels 1-3)
-- Parallel investigation (Level 3)
-- Extended thinking budget
-- Returns structured report with recommendations
-```
-
-**Integration flow:**
-
-1. troubleshooter detects complex problem (Level 3 insufficient)
-2. Invokes deep-research skill
-3. deep-research starts at Level 1 (may escalate)
-4. Returns structured report to troubleshooter
-5. troubleshooter presents findings to user
-
----
-
-## Integration with troubleshooting-docs
-
-After successful application of Level 2-3 findings:
-
-**Auto-suggest documentation:**
-
-```
-✓ Solution applied successfully
-
-This was a complex problem (Level N research). Document for future reference?
-
-1. Yes - Create troubleshooting doc (recommended)
-2. No - Skip documentation
-3. Other
-```
-
-If user chooses "Yes":
-
-- Invoke troubleshooting-docs skill
-- Pass research report + solution as context
-- Creates dual-indexed documentation
-- Future Level 1 searches will find it instantly
-
-**The feedback loop:**
-
-1. Level 3 research solves complex problem (45 min)
-2. Document solution → troubleshooting/
-3. Similar problem occurs → Level 1 finds it (5 min)
-4. Knowledge compounds, research gets faster over time
+See [references/integrations.md](references/integrations.md) for troubleshooter and troubleshooting-docs integration details.
 
 ---
 
 
 ## Error Handling
 
-**Timeout (>60 min):**
-
-```
-⚠️ Research timeout (60 min limit)
-
-Returning best findings based on investigation so far:
-[Partial findings]
-
-What's next?
-1. Use current findings - Proceed with partial answer
-2. Retry with extended timeout - Continue research (80 min)
-3. Other
-```
-
-**No solution found:**
-
-```
-Research exhausted (Level 3 complete, no definitive solution)
-
-Attempted:
-✓ Local troubleshooting docs (0 matches)
-✓ Context7 JUCE documentation (API exists but undocumented)
-✓ JUCE forum + GitHub (no clear consensus)
-✓ Parallel investigation (3 approaches, all have significant drawbacks)
-
-Recommendations:
-1. Post to JUCE forum with detailed investigation
-2. Try experimental approach: [Suggestion]
-3. Consider alternative feature: [Workaround]
-
-I can help formulate forum post if needed.
-```
-
-**Subagent failure (Level 3):**
-
-```
-⚠️ Subagent [N] failed to complete research
-
-Proceeding with findings from other subagents (N-1 completed)...
-```
-
-Continue with available findings, note partial investigation in report.
-
-**WebSearch unavailable:**
-Level 2 proceeds with Context7 only:
-
-```
-⚠️ Web search unavailable
-
-Proceeding with Context7 JUCE documentation only.
-Results may be incomplete for community knowledge.
-```
+See [references/error-handling.md](references/error-handling.md) for timeout, failure, and fallback patterns.
 
 ---
-
----
-
-## Performance Budgets
-
-**Level 1:**
-
-- Time: 5-10 min
-- Extended thinking: No
-- Success rate: 40% of problems (known solutions)
-
-**Level 2:**
-
-- Time: 15-30 min
-- Extended thinking: No
-- Success rate: 40% of problems (documented solutions)
-
-**Level 3:**
-
-- Time: 30-60 min
-- Extended thinking: Yes (15k budget)
-- Success rate: 20% of problems (novel/complex)
-
-**Overall:**
-
-- Average resolution time: 15 min (weighted by success rates)
-- 80% of problems solved at Level 1-2 (fast)
-- 20% require Level 3 (deep research justified)
-
----
-
-## Example Scenarios
-
-See `references/example-scenarios.md` for detailed walkthroughs of:
-- Scenario 1: WebView freeze (solved at Level 1)
-- Scenario 2: APVTS visibility (escalated to Level 2)
-- Scenario 3: Novel DSP implementation (escalated to Level 3)
-- Scenario 4: JUCE 8 migration (solved at Level 1 via Required Reading)
-- Scenario 5: LookAndFeel propagation (answered at Level 1)
-
-Each scenario shows escalation logic and time estimates.
-
----
-
-## Future Enhancements
-
-**Not in Phase 7 scope, but potential:**
-
-- Learning from research patterns (which sources most useful)
-- Caching Context7 queries (avoid repeated lookups)
-- Confidence calibration (track prediction accuracy)
-- Custom subagent types (specialized researchers)
-- Integration with external knowledge bases (Stack Overflow, papers)

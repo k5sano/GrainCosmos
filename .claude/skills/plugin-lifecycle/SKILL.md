@@ -1,6 +1,6 @@
 ---
 name: plugin-lifecycle
-description: Manage complete plugin lifecycle - install, uninstall, reset, destroy
+description: Manage complete plugin lifecycle - install, uninstall, reset, destroy. Use after Stage 6 completion or when modifying deployed plugins.
 allowed-tools:
   - Bash
   - Read
@@ -27,6 +27,18 @@ All operations include proper permissions, cache clearing, state tracking, and s
 
 ---
 
+## Common Operations (Used Across Modes)
+
+**Extract Product Name:**
+```bash
+PRODUCT_NAME=$(grep 'PRODUCT_NAME' plugins/$PLUGIN_NAME/CMakeLists.txt | sed 's/.*PRODUCT_NAME "\(.*\)".*/\1/')
+```
+
+**Update PLUGINS.md Status:**
+Use Edit tool to update status field for plugin (see reference files for specific status values).
+
+---
+
 ## Mode Dispatcher
 
 This skill operates in different modes based on the invoking command:
@@ -41,60 +53,79 @@ This skill operates in different modes based on the invoking command:
 
 **Invocation Pattern:**
 When user runs `/install-plugin [Name]`, the command expands to a prompt that invokes THIS skill.
-You then read the mode from context and delegate to the appropriate reference file:
-- Mode 1 → Read and execute `references/installation-process.md`
-- Mode 2 → Read and execute `references/uninstallation-process.md`
-- Mode 3 → Read and execute `references/mode-3-reset.md`
-- Mode 4 → Read and execute `references/mode-4-destroy.md`
+Determine mode by examining command (see [references/invocation-protocol.md](references/invocation-protocol.md)), then execute steps in appropriate reference file:
+- Mode 1 → Execute steps in `references/installation-process.md`
+- Mode 2 → Execute steps in `references/uninstallation-process.md`
+- Mode 3 → Execute steps in `references/mode-3-reset.md`
+- Mode 4 → Execute steps in `references/mode-4-destroy.md`
 - Menu → Present menu, wait for selection, then route to chosen mode
 
 **Installation targets (macOS):**
-- VST3: `~/Library/Audio/Plug-Ins/VST3/`
-- AU: `~/Library/Audio/Plug-Ins/Components/`
+- VST3, AU: `~/Library/Audio/Plug-Ins/VST3/`, `~/Library/Audio/Plug-Ins/Components/`
 - AAX: `~/Library/Application Support/Avid/Audio/Plug-Ins/` (future)
-
-DAWs scan these locations. Correct installation = plugin appears in DAW.
 
 ---
 
-## Installation Workflow
+## Installation Workflow (Mode 1 - Critical - Do Not Skip Steps)
 
-<critical_sequence enforcement="strict" blocking="true">
-The following steps MUST execute in order without skipping:
+Copy this checklist to track installation progress:
 
-1. **Build Verification** - Check Release binaries exist, offer to build if missing
-   - Delegate to: `references/installation-process.md` Step 1
-   - Blocking: YES - cannot proceed without binaries
+```
+Installation Progress:
+- [ ] Step 1: Build verification (BLOCKING)
+- [ ] Step 2: Product name extraction
+- [ ] Step 3: Old version removal
+- [ ] Step 4: Copy to system folders (BLOCKING)
+- [ ] Step 5: Permissions verification (BLOCKING)
+- [ ] Step 6: Cache clearing
+- [ ] Step 7: Verification (BLOCKING)
+- [ ] Step 8: PLUGINS.md update (BLOCKING)
+```
+
+Execute these steps in order:
+
+1. **Build Verification** (BLOCKING) - Check Release binaries exist, offer to build if missing
+   - See: `references/installation-process.md` Step 1
+   - Cannot proceed without binaries
 
 2. **Product Name Extraction** - Extract PRODUCT_NAME from CMakeLists.txt
-   - Delegate to: `references/installation-process.md` Step 2
-   - Required for: All subsequent steps that reference ${PRODUCT_NAME}
+   - See: `references/installation-process.md` Step 2
+   - Required for all subsequent steps
 
 3. **Old Version Removal** - Remove existing installations to prevent conflicts
-   - Delegate to: `references/installation-process.md` Step 3
-   - Blocking: NO - can proceed if no old version exists
+   - See: `references/installation-process.md` Step 3
+   - Can proceed if no old version exists
 
-4. **Copy to System Folders** - Install VST3 and AU to macOS plugin directories
-   - Delegate to: `references/installation-process.md` Step 4
-   - Blocking: YES - core installation step
+4. **Copy to System Folders** (BLOCKING) - Install VST3 and AU to macOS plugin directories
+   - See: `references/installation-process.md` Step 4
+   - Core installation step
 
-5. **Permissions Verification** - Set 755 permissions for DAW access
-   - Delegate to: `references/installation-process.md` Step 5
-   - Blocking: YES - DAWs cannot load plugins without correct permissions
+5. **Permissions Verification** (BLOCKING) - Set 755 permissions for DAW access
+   - See: `references/installation-process.md` Step 5
+   - DAWs cannot load plugins without correct permissions
 
 6. **Cache Clearing** - Clear Ableton Live and Logic Pro caches
-   - Delegate to: `references/cache-management.md`
-   - Blocking: NO - warn if fails but continue
+   - See: `references/cache-management.md`
+   - Display warning if fails, then proceed
 
-7. **Verification** - Confirm installation with file checks and size validation
-   - Delegate to: `references/installation-process.md` Step 7
-   - Blocking: YES - must confirm success before declaring completion
+7. **Verification** (BLOCKING) - Confirm installation with file checks and size validation
+   - See: `references/installation-process.md` Step 7
+   - Must confirm success before declaring completion
 
-8. **PLUGINS.md Update** - Record installation status and locations
-   - Delegate to: `references/installation-process.md` Step 8
-   - Blocking: YES - state tracking is part of success criteria
+8. **PLUGINS.md Update** (BLOCKING) - Record installation status and locations
+   - See: `references/installation-process.md` Step 8
+   - State tracking is part of success criteria
 
-</critical_sequence>
+**Note:** Steps marked BLOCKING must succeed before proceeding.
+
+**Feedback Loop:**
+If Step 7 (Verification) fails:
+1. Review error details
+2. Check reference file: `references/error-handling.md`
+3. Apply fix
+4. Retry from Step 4 (Copy to System Folders)
+
+If verification succeeds, proceed to decision menu.
 
 See **[references/installation-process.md](references/installation-process.md)** for complete implementation.
 
@@ -102,84 +133,25 @@ See **[references/installation-process.md](references/installation-process.md)**
 
 ## Cache Management
 
-DAWs cache plugin metadata for fast scanning. After installation/removal, caches must be cleared:
-
-- **Ableton Live**: Delete `PluginCache.db` from all Live versions
-- **Logic Pro**: Clear `AudioUnitCache/` and restart `AudioComponentRegistrar`
-- **Other DAWs**: Reaper (no cache), Cubase (manual rescan), Pro Tools (future)
-
-See **[references/cache-management.md](references/cache-management.md)** for detailed cache clearing procedures.
+See **[references/cache-management.md](references/cache-management.md)** for cache clearing procedures (invoked during installation and uninstallation).
 
 ---
 
-## Uninstallation Workflow
+## Uninstallation Workflow (Mode 2)
 
-Complete uninstallation process:
-
-1. **Locate Plugin Files** - Find installed VST3 and AU bundles
-2. **Confirm Removal** - Ask user to confirm deletion
-3. **Remove Files** - Delete from system folders (source code preserved)
-4. **Clear Caches** - Same as installation
-5. **Update PLUGINS.md** - Change status back to ✅ Working
-6. **Confirmation** - Display uninstallation summary
-
-See **[references/uninstallation-process.md](references/uninstallation-process.md)** for complete implementation.
+See **[references/uninstallation-process.md](references/uninstallation-process.md)** for complete uninstallation process (locate, confirm, remove, clear caches, update PLUGINS.md).
 
 ---
 
 ## Reset to Ideation Workflow (Mode 3)
 
-Surgical rollback that removes implementation but preserves ideation artifacts:
-
-**What gets preserved:**
-- Creative brief (the original idea)
-- UI mockups (all versions)
-- Parameter specifications
-
-**What gets removed:**
-- Source code (Source/ directory)
-- Build configuration (CMakeLists.txt)
-- Implementation docs (architecture.md, plan.md)
-- Build artifacts and installed binaries
-
-**Use case:** Implementation went wrong, but the concept and UI design are solid. Start fresh from Stage 0.
-
-See **[references/mode-3-reset.md](references/mode-3-reset.md)** for complete implementation.
+Surgical rollback - removes implementation, preserves idea/mockups. Use case: Implementation failed but concept is solid. See **[references/mode-3-reset.md](references/mode-3-reset.md)** for complete process.
 
 ---
 
 ## Destroy Workflow (Mode 4)
 
-Complete removal with backup for abandoned plugins:
-
-**What gets removed:**
-- Everything: source code, binaries, build artifacts, PLUGINS.md entry
-- Optionally: troubleshooting docs mentioning the plugin
-
-<decision_gate type="destructive_confirmation" bypass="never">
-**Safety Protocol - Requires Explicit User Confirmation:**
-
-<gate_conditions>
-1. Check status ≠ 🚧 (block if in development)
-2. Create timestamped backup to `backups/destroyed/`
-3. Show deletion preview (files, sizes, locations)
-4. Require exact plugin name match (case-sensitive)
-</gate_conditions>
-
-<confirmation_format>
-User MUST type exact plugin name to proceed.
-- Correct match → Proceed to deletion
-- Incorrect match → Abort with error message
-- Empty response → Abort
-</confirmation_format>
-
-You MUST NOT proceed with deletion until user provides correct confirmation.
-This gate cannot be bypassed - it protects against accidental data loss.
-</decision_gate>
-
-**Use case:** Abandoned experiment, complete failure, duplicate by mistake. Never using this plugin again.
-
-See **[references/mode-4-destroy.md](references/mode-4-destroy.md)** for complete implementation.
+Complete removal with backup. Use case: Abandoned experiment, never using again. Requires exact plugin name confirmation (safety gate). See **[references/mode-4-destroy.md](references/mode-4-destroy.md)** for complete process.
 
 ---
 
@@ -211,57 +183,7 @@ Choose (1-4): _
 
 ---
 
-## Error Handling
-
-Common error scenarios with troubleshooting:
-
-- **Build Files Not Found**: Guide to build Release mode or check build status
-- **Permission Denied**: Create directories, fix permissions, check disk space
-- **Cache Clear Failed**: Manual DAW-specific cache clearing instructions
-- **Plugin Doesn't Appear in DAW**: Comprehensive troubleshooting checklist
-
-See **[references/error-handling.md](references/error-handling.md)** for all error scenarios and fixes.
-
----
-
-## Decision Menu After Installation
-
-<decision_gate type="checkpoint" enforcement="strict">
-After successful installation, you MUST present this decision menu and WAIT for user response.
-
-<checkpoint_protocol>
-1. Display completion statement with checkmark
-2. Present numbered menu (5 options)
-3. STOP execution and wait for user choice
-4. Do NOT auto-proceed or make assumptions
-5. Only continue after receiving user selection (1-5)
-</checkpoint_protocol>
-
-<menu_format>
-```
-✓ [PluginName] installed successfully
-
-What's next?
-1. Test in DAW (recommended) → Load in Logic/Ableton/Reaper
-2. Create another plugin → /dream
-3. Document this plugin → Create user guide/manual
-4. Share plugin (export build) → Future: Package for distribution
-5. Other
-
-Choose (1-5): _
-```
-</menu_format>
-
-<response_handlers>
-- **Option 1:** Provide DAW testing guidance (terminal - ends workflow)
-- **Option 2:** Invoke `plugin-ideation` skill via natural language (not direct Tool call)
-- **Option 3:** Suggest creating user manual in `.ideas/` directory
-- **Option 4:** Provide build export instructions (future feature note)
-- **Option 5:** Ask open-ended "What would you like to do?"
-</response_handlers>
-
-This is a system-wide checkpoint protocol enforcement. Never skip this menu.
-</decision_gate>
+After successful operations, present decision menu to user. See [references/decision-menu-protocol.md](references/decision-menu-protocol.md) for menu format and response handlers.
 
 ---
 
@@ -282,47 +204,7 @@ This is a system-wide checkpoint protocol enforcement. Never skip this menu.
 
 - None (terminal skill, doesn't invoke others)
 
-<handoff_protocol>
-## Invocation Protocol
-
-When this skill is invoked, check the triggering context:
-
-<invocation_modes>
-1. **Direct command** (e.g., `/install-plugin GainKnob`)
-   - Extract plugin name from command argument
-   - Set mode = 1 (Installation)
-   - Execute installation workflow
-
-2. **From plugin-workflow** (after Stage 6 completion)
-   - Plugin name provided in context
-   - Automatically invoked after validation completes
-   - Set mode = 1 (Installation) and execute
-
-3. **From plugin-improve** (after successful changes)
-   - Plugin name in context
-   - Offer reinstallation (only if previously installed)
-   - IF user accepts → Set mode = 1 and execute
-
-4. **Natural language** ("Install TapeAge")
-   - Parse plugin name from utterance
-   - Set mode = 1 (Installation)
-   - Execute installation workflow
-
-5. **Interactive menu** (from `/clean` command)
-   - Plugin name provided
-   - Set mode = Menu
-   - Present options, wait for selection, route to chosen mode
-</invocation_modes>
-
-<return_protocol>
-After completion, this skill MUST:
-1. Present decision menu (checkpoint protocol)
-2. Wait for user response
-3. Return control to user (terminal skill - does not invoke other skills)
-
-Do NOT automatically proceed to next action.
-</return_protocol>
-</handoff_protocol>
+**Invocation patterns**: See [references/invocation-protocol.md](references/invocation-protocol.md) for mode detection and routing.
 
 **Updates:**
 
@@ -360,15 +242,3 @@ Installation is successful when:
 
 ---
 
-## Notes for Claude - Mode 1 (Installation)
-
-**When executing the installation workflow (Mode 1):**
-
-1. Always check for Release build first - offer to build if missing
-2. Extract PRODUCT_NAME from CMakeLists.txt (may contain spaces)
-3. Use quotes around paths with spaces: `"$PRODUCT_NAME"`
-4. Remove old versions before installing (prevents conflicts)
-5. Cache clearing is important but not blocking (warn if fails)
-6. Verification checks should be comprehensive (permissions, timestamps, sizes)
-7. PLUGINS.md status update is part of success criteria
-8. Provide clear next steps after installation

@@ -1,30 +1,25 @@
 # build-automation
 
 ---
-skill: build-automation
-description: Orchestrates plugin builds using centralized build script with comprehensive failure handling. Invoked during compilation, build verification, installation. Handles both success and failure paths with structured decision menus.
-category: core
-invoked_by:
-  - plugin-workflow
-  - plugin-improve
-  - plugin-lifecycle
-invokes:
-  - scripts/build-and-install.sh
-  - troubleshooter
-tools:
-  - Bash
-  - Read
-  - Task
-output:
-  - build_status
-  - log_file_path
-  - user_decision
-preconditions:
-  - scripts/build-and-install.sh exists and is executable
-  - Plugin directory exists at plugins/$PLUGIN_NAME
-  - CMakeLists.txt exists in plugin directory
-  - CMake and Ninja installed (validated by build script)
+name: build-automation
+description: Orchestrates plugin builds using the build script, handles failures with structured menus, and returns control to the invoking workflow. Used during compilation and installation.
 ---
+
+<!--
+TABLE OF CONTENTS:
+1. Success Criteria (lines 8-19)
+2. Purpose (lines 21-34)
+3. Context Mechanism (lines 36-58)
+4. Build Workflow (lines 60-128)
+5. Failure Protocol (lines 130-179)
+6. Success Protocol (lines 181-247)
+7. Integration Examples (line 249)
+8. Error Handling Rules (lines 253-281)
+9. Testing & Debugging (lines 283-285)
+10. Common Issues (lines 287-289)
+
+NOTE: Line numbers approximate, update after refactoring
+-->
 
 ## Success Criteria
 
@@ -54,11 +49,48 @@ Orchestrates plugin builds via `scripts/build-and-install.sh` with comprehensive
 - Context-specific success menus (different per stage)
 - Always returns control to invoker (never continues autonomously)
 
-<critical_sequence name="build_workflow" enforce_order="strict">
+## Context Mechanism
+
+When invoked, this skill receives context via invocation parameters:
+
+```json
+{
+  "plugin_name": "PluginName",
+  "stage": "Stage 2" | "Stage 3" | "Stage 4" | "Stage 5" | "Stage 6" | null,
+  "invoker": "plugin-workflow" | "plugin-improve" | "plugin-lifecycle" | "manual",
+  "build_flags": ["--no-install"] | ["--dry-run"] | []
+}
+```
+
+**Context is preserved throughout skill execution:**
+- Stored at skill entry (before entering Build Workflow)
+- Reused on retry without re-prompting user
+- Determines build flags, success menu, and return behavior
+
+**Manual invocation detection:**
+- When `invoker: "manual"` (user says "build PluginName" directly without workflow context)
+- Prompt: "Use --dry-run to preview build commands? (y/n)"
+- No stage-specific success menu (generic completion message only)
+
+<workflow name="build_workflow">
 
 ## Build Workflow
 
 When invoked, the build-automation skill follows this workflow:
+
+### Build Workflow Progress Checklist
+
+Copy this checklist to track your progress:
+
+```
+Build Progress:
+- [ ] Step 1: Input validation
+- [ ] Step 2: Determine build flags
+- [ ] Step 3: Invoke build script
+- [ ] Step 4: Monitor build output
+- [ ] Step 5: Capture exit code
+- [ ] Step 6: Execute success/failure protocol
+```
 
 ### 1. Input Validation
 
@@ -73,7 +105,7 @@ Context-aware flag selection:
 - **Stage 2 (Foundation)**: Always use `--no-install` flag (verify compilation only, no installation)
 - **Stages 3-6 (Shell/DSP/GUI/Validation)**: Full build with installation (no flags)
 - **plugin-improve**: Full build with installation (no flags)
-- **User manual invocation**: Ask if they want `--dry-run` to preview commands
+- **Manual invocation** (`invoker: "manual"`): Ask if they want `--dry-run` to preview commands
 
 ### 3. Invoke Build Script
 
@@ -109,7 +141,7 @@ Build log: logs/[PluginName]/build_TIMESTAMP.log
 
 User can review full build output from log file if needed.
 
-</critical_sequence>
+</workflow>
 
 <decision_gate name="build_failure_handling" blocking="true">
 
@@ -118,10 +150,22 @@ User can review full build output from log file if needed.
 When build fails (exit code 1):
 
 1. Extract error from log (last 50 lines or first error indicator)
-2. Present structured menu (see references/failure-protocol.md for option details)
+2. Present structured menu (see menu structure below)
 3. WAIT for user choice (NEVER auto-proceed)
 4. Execute chosen option
-5. For options 1-3: Re-present menu after completion (iterative debugging)
+
+**Iterative Debugging Loop**:
+```
+┌─────────────────────────────┐
+│ Present failure menu        │
+│ ↓                           │
+│ Wait for user choice        │
+│ ↓                           │
+│ Execute option 1-3          │
+│ ↓                           │
+│ Return to menu (loop)       │ ← Continue until user chooses option 4 (Wait) or 5 (Other/abort)
+└─────────────────────────────┘
+```
 
 Menu structure:
 ```
@@ -135,9 +179,22 @@ What would you like to do?
 5. Other
 ```
 
-Option implementations: See references/failure-protocol.md
+**Option Actions** (summary - full details in references/failure-protocol.md):
+
+1. **Investigate**: Invoke troubleshooter agent via Task tool with build log context → display findings → re-present menu
+2. **Show build log**: Display full log contents with highlighted error section → re-present menu
+3. **Show code**: Extract file/line from error, display relevant code section (±5 lines) → re-present menu
+4. **Wait**: Exit skill, preserve context for retry (user says "retry build" when ready) → do NOT re-present menu
+5. **Other**: Capture custom action (retry, skip, abort, or execute specific instruction)
+
+**Menu Loop**:
+- Options 1-3: Execute action, then re-present menu (iterative debugging)
+- Option 4: Exit skill cleanly (workflow paused)
+- Option 5: Execute user's choice, behavior depends on instruction
 
 </decision_gate>
+
+<decision_gate name="build_success_handling" blocking="false">
 
 ## Success Protocol
 
@@ -179,7 +236,7 @@ Log: logs/[PluginName]/build_TIMESTAMP.log
 
 ### 3. Context-Aware Decision Menu
 
-Load context-appropriate menu from `assets/success-menus.md` based on invoking stage
+Load context-appropriate menu from `assets/success-menus.md` based on `context.stage` parameter
 
 <handoff_protocol name="return_to_invoker">
 
@@ -202,6 +259,8 @@ Exit the skill cleanly:
 4. The invoking skill/workflow will detect completion and proceed according to its own logic
 
 </handoff_protocol>
+
+</decision_gate>
 
 ## Integration Examples
 
@@ -232,8 +291,8 @@ MUST preserve from original invocation:
 - Invoking stage (Stage 2, 3, 4, 5, 6, or N/A)
 - Last decision point (for return navigation)
 
-Store in skill-local variables at skill entry (line 48).
-Reuse on retry without re-prompting user.
+Context is already stored from skill entry (see "Context Mechanism" section).
+Reuse stored context on retry without re-prompting user.
 
 </state_requirement>
 
@@ -243,7 +302,8 @@ If build script fails with dependency errors (CMake, Ninja, JUCE not found):
 
 1. Display specific missing dependency
 2. Provide installation command (e.g., "Install with: brew install ninja")
-3. After user installs, offer: "Retry build now?"
+3. Suggest: "Run /setup command to validate full environment configuration"
+4. After user installs, offer: "Retry build now?"
 
 ### Parse Errors Intelligently
 
@@ -256,12 +316,6 @@ Extract meaningful error information for troubleshooter:
 
 Pass full context to troubleshooter, not just error message.
 
-## Performance Notes
-
-- **Duration tracking:** Display "Build time: Xm Ys" in all success/failure messages
-- **Log management:** Logs accumulate in `logs/[PluginName]/build_TIMESTAMP.log` (no auto-cleanup)
-- **Parallel builds:** Handled by build script (Ninja), skill only monitors output
-
 ## Testing & Debugging
 
 See `references/testing-guide.md` for manual testing procedures
@@ -269,21 +323,3 @@ See `references/testing-guide.md` for manual testing procedures
 ## Common Issues
 
 See `references/troubleshooting.md` for common issues and solutions
-
-## Future Enhancements
-
-Potential additions for later phases:
-
-1. **Build caching**: Incremental builds for faster iteration
-2. **Parallel plugin builds**: Build multiple plugins simultaneously
-3. **Build profiles**: Debug, Release, RelWithDebInfo
-4. **Build notifications**: macOS notifications for long builds
-5. **Build analytics**: Track success rates, common failures, build times
-6. **Custom build targets**: Support non-standard JUCE targets
-7. **Windows/Linux support**: Extend build system beyond macOS
-
----
-
-**Skill Status**: Ready for integration
-**Last Updated**: 2025-01-10
-**Dependencies**: scripts/build-and-install.sh, .claude/agents/troubleshooter.md

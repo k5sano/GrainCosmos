@@ -5,6 +5,8 @@ allowed-tools:
   - Read
   - Bash
   - Task # For deep-research on failures
+# preconditions: project-specific extension (not in Agent Skills spec)
+# Used by system hooks to validate skill invocation
 preconditions:
   - Plugin must exist
   - Plugin status must NOT be 💡 (must have implementation)
@@ -24,17 +26,15 @@ This skill provides three test modes:
 
 ## Phase 1: Detect Plugin and Mode Selection
 
-<decision_gate enforcement="strict">
-**You MUST complete ALL steps before presenting mode selection:**
+<decision_gate>
+**Complete all prerequisite checks before presenting mode selection:**
 
-1. Parse plugin name from user input (extract from `/test [Name]` or natural language)
+1. Parse plugin name from user input (from `/test [Name]` or natural language)
 2. Read `PLUGINS.md` and verify plugin exists
 3. Verify plugin status is NOT 💡 (implementation must exist)
-4. Check for Tests/ directory existence: `test -d "plugins/$PLUGIN_NAME/Tests/"`
+4. Check for Tests/ directory: `test -d "plugins/{PLUGIN_NAME}/Tests/"`
 
-**Once validation complete, you MUST present mode selection menu** (see `assets/decision-menu-templates.md#mode-selection`)
-
-**You MUST NOT proceed to Phase 2 until user selects a mode (1-4)**
+Present mode selection menu (see `assets/decision-menu-templates.md#mode-selection`) and WAIT for user selection (1-4). Do not proceed to Phase 2 until mode selected.
 </decision_gate>
 
 **Parse shorthand commands:**
@@ -46,145 +46,195 @@ This skill provides three test modes:
 
 ### Mode 1: Automated Testing
 
-<critical_sequence enforcement="strict">
-**You MUST execute these steps in exact order:**
+**Track your progress:**
+```
+Mode 1 Progress:
+- [ ] Step 1: Read test specifications
+- [ ] Step 2: Check for Tests/ directory
+- [ ] Step 3: Build and execute tests
+- [ ] Step 4: Parse test results
+- [ ] Step 5: Present results and next steps
+```
+
+<critical_sequence>
+**Execute these steps in exact order:**
 
 <step id="read_spec">
 **Step 1: Read Test Specifications**
 
-You MUST read `references/test-specifications.md` for detailed test implementations before proceeding.
+Read `references/test-specifications.md` for detailed test implementations before proceeding.
 </step>
 
-<step id="check_tests" depends_on="read_spec">
+<step id="check_tests">
 **Step 2: Check for Tests/ Directory**
 
-You MUST verify Tests/ directory exists:
+Verify Tests/ directory exists:
 ```bash
-test -d "plugins/$PLUGIN_NAME/Tests/"
+test -d "plugins/{PLUGIN_NAME}/Tests/"
 ```
 
-If missing: You MUST inform user that automated tests require test infrastructure and suggest Mode 2 (pluginval) as recommended alternative. Present decision menu from `assets/decision-menu-templates.md#missing-tests`.
+**VALIDATION GATE**: If Tests/ directory does not exist:
+1. Inform user that automated tests require test infrastructure
+2. Present decision menu from `assets/decision-menu-templates.md#missing-tests`
+3. WAIT for user selection
+4. **STOP - Do not proceed to Step 3** (user must select Mode 2 or cancel)
+
+If Tests/ directory exists, proceed to Step 3.
 </step>
 
-<step id="build" depends_on="check_tests">
+<step id="build_tests">
 **Step 3: Build and Execute Tests**
 
-You MUST build and run tests (see `references/test-specifications.md#execution`).
+Build and run tests (see `references/test-specifications.md#execution`).
 </step>
 
-<step id="parse" depends_on="build">
+<step id="parse_results">
 **Step 4: Parse Test Results**
 
-You MUST parse test output and generate report using template from `assets/report-templates.md#mode1-results`.
+Parse test output and generate report using template from `assets/report-templates.md#mode1-results`.
 </step>
 
-<step id="present" depends_on="parse">
+<step id="present_results">
 **Step 5: Present Results**
 
-You MUST present test results and post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode1`). WAIT for user selection.
+Present test results and post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode1`). WAIT for user selection.
 </step>
 </critical_sequence>
 
 ### Mode 2: Build + Pluginval
 
-<critical_sequence enforcement="strict">
-**You MUST execute these steps in exact order:**
+**Track your progress:**
+```
+Mode 2 Progress:
+- [ ] Step 1: Prerequisites check (pluginval installation)
+- [ ] Step 2: Build Release binaries (VST3 + AU)
+- [ ] Step 3: Run pluginval at strictness level 10
+- [ ] Step 4: Parse validation results
+- [ ] Step 5: Present results and next steps
+```
+
+<critical_sequence>
+**Execute these steps in exact order:**
 
 <step id="prereq_check">
 **Step 1: Prerequisites Check**
 
-You MUST read `references/pluginval-guide.md#installation-check` for implementation details.
+Read `references/pluginval-guide.md#installation-check` for implementation details.
 
 Check for pluginval installation using script from reference file.
 
-**If pluginval not found:** You MUST present installation decision menu (see `assets/decision-menu-templates.md#pluginval-install`) and WAIT for user response. BLOCK execution until resolved.
+**VALIDATION GATE**: If pluginval not found:
+1. Present installation decision menu (see `assets/decision-menu-templates.md#pluginval-install`)
+2. WAIT for user selection
+3. If user chooses to install: Provide installation instructions and wait for confirmation
+4. If user cancels: STOP workflow and return to main menu
+5. **STOP - Do not proceed to Step 2 until pluginval is confirmed installed**
+
+Verify pluginval is accessible before proceeding to Step 2.
 </step>
 
-<step id="build" depends_on="prereq_check">
+<step id="build_release">
 **Step 2: Build Release Binaries**
 
-You MUST build in Release mode (see `references/pluginval-guide.md#build-process`):
+Build in Release mode (see `references/pluginval-guide.md#build-process`):
 
 Locate binaries:
 ```bash
-VST3_PATH="build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/VST3/${PRODUCT_NAME}.vst3"
-AU_PATH="build/plugins/$PLUGIN_NAME/${PLUGIN_NAME}_artefacts/Release/AU/${PRODUCT_NAME}.component"
+VST3_PATH="build/plugins/{PLUGIN_NAME}/{PLUGIN_NAME}_artefacts/Release/VST3/{PRODUCT_NAME}.vst3"
+AU_PATH="build/plugins/{PLUGIN_NAME}/{PLUGIN_NAME}_artefacts/Release/AU/{PRODUCT_NAME}.component"
 ```
 </step>
 
-<step id="validate" depends_on="build">
+<step id="validate_plugins">
 **Step 3: Run Pluginval**
 
-You MUST validate both formats at strictness level 10 (see `references/pluginval-guide.md#execution`).
+Validate both formats at strictness level 10 (see `references/pluginval-guide.md#execution`).
 </step>
 
-<step id="parse" depends_on="validate">
+<step id="parse_results">
 **Step 4: Parse Results**
 
-You MUST parse pluginval output (see `references/pluginval-guide.md#parsing-output`) and generate report using template from `assets/report-templates.md#mode2-results`.
+Parse pluginval output (see `references/pluginval-guide.md#parsing-output`) and generate report using template from `assets/report-templates.md#mode2-results`.
 </step>
 
-<step id="present" depends_on="parse">
+<step id="present_results">
 **Step 5: Present Results and Next Steps**
 
-You MUST present post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode2`) and WAIT for user selection.
+Present post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode2`) and WAIT for user selection.
 </step>
 </critical_sequence>
 
 ### Mode 3: Manual DAW Testing
 
-<critical_sequence enforcement="strict">
-**You MUST execute these steps in exact order:**
+**Track your progress:**
+```
+Mode 3 Progress:
+- [ ] Step 1: Read DAW testing guide
+- [ ] Step 2: Generate customized checklist (parameter-specific)
+- [ ] Step 3: Present checklist with testing instructions
+- [ ] Step 4: Collect user test results (pass/fail per item)
+- [ ] Step 5: Present next steps
+```
+
+<critical_sequence>
+**Execute these steps in exact order:**
 
 <step id="read_guide">
 **Step 1: Read DAW Testing Guide**
 
-You MUST read `references/manual-testing-guide.md` for complete manual testing procedures.
+Read `references/manual-testing-guide.md` for complete manual testing procedures.
 </step>
 
-<step id="generate_checklist" depends_on="read_guide">
+<step id="generate_checklist">
 **Step 2: Generate Customized Checklist**
 
-You MUST generate customized checklist from `parameter-spec.md` tailored to plugin's specific parameters and features.
+Generate customized checklist from `parameter-spec.md` tailored to plugin's specific parameters and features.
 </step>
 
-<step id="present_checklist" depends_on="generate_checklist">
+<step id="present_checklist">
 **Step 3: Present Checklist**
 
-You MUST present checklist to user with instructions for manual testing in their DAW.
+Present checklist to user with instructions for manual testing in their DAW.
 
 Inform user to report back with results (pass/fail per item).
 </step>
 
-<step id="collect_results" depends_on="present_checklist">
+<step id="collect_results">
 **Step 4: Collect Results**
 
 WAIT for user to complete manual testing and provide results.
 
-You MUST parse user's feedback and generate completion report.
+Parse user's feedback and generate completion report.
 </step>
 
-<step id="present_menu" depends_on="collect_results">
+<step id="present_menu">
 **Step 5: Present Next Steps**
 
-You MUST present post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode3`) and WAIT for user selection.
+Present post-test decision menu (see `assets/decision-menu-templates.md#post-test-mode3`) and WAIT for user selection.
 </step>
 </critical_sequence>
 
 ## Phase 3: Failure Investigation (Option 1)
 
-<delegation_rule enforcement="strict">
+<delegation_rule>
 **When user chooses "Investigate failures":**
 
 <sequence>
-1. You MUST read `references/troubleshooting.md` for each failed test
+1. Read `references/troubleshooting.md` for each failed test
 2. Provide initial fix recommendations from troubleshooting docs
 3. Offer code inspection option
 
-4. **For non-trivial issues (not documented in troubleshooting.md):**
+4. **For non-trivial issues:**
+
+   **Non-trivial issues include:**
+   - Errors not documented in troubleshooting.md
+   - Multiple interconnected test failures (3+ tests failing together)
+   - JUCE API-specific problems (APVTS, processBlock, threading)
+   - Issues requiring cross-file analysis (DSP + parameters + state management)
+   - Platform-specific crashes or validation failures
 
    <handoff_protocol>
-   You MUST delegate to `deep-research` skill via Task tool:
+   Delegate to `deep-research` skill via Task tool:
 
    ```
    Task: "Investigate [test_name] failure in [PluginName]
@@ -199,46 +249,42 @@ You MUST present post-test decision menu (see `assets/decision-menu-templates.md
 
    WAIT for deep-research completion before presenting results to user.
 
-   **NEVER attempt to fix complex issues without delegation to deep-research.**
+   **Never attempt to fix complex issues without delegation to deep-research.**
    </handoff_protocol>
 </sequence>
 </delegation_rule>
 
 ## Phase 4: Log Test Results
 
-<state_requirement enforcement="strict">
-**After completing ANY test mode (1, 2, or 3), you MUST:**
+<state_requirement>
+**After completing any test mode (1, 2, or 3):**
 
-<requirement id="save_log">
 **Requirement 1: Save Test Log**
 
-You MUST save detailed test log to: `logs/[PluginName]/test_[timestamp].log`
+Save detailed test log to: `logs/{PLUGIN_NAME}/test_[timestamp].log`
 
 Use format from `assets/report-templates.md#test-log-format`
-</requirement>
 
-<requirement id="update_continue">
 **Requirement 2: Update .continue-here.md**
 
-You MUST update `.continue-here.md`:
+Update `.continue-here.md`:
 - Set current_stage: "testing_complete"
 - Set next_step based on test results (Stage 6 if passed, investigation if failed)
 - Record test_date: [timestamp]
 - Record test_mode: [1/2/3]
-</requirement>
 
-<requirement id="update_plugins">
 **Requirement 3: Update PLUGINS.md**
 
-You MUST update `PLUGINS.md` for {PLUGIN_NAME}:
+Update `PLUGINS.md` for {PLUGIN_NAME}:
 - Set test_status: "✅ passed" or "❌ failed"
 - Record last_tested: [date]
 - Record test_mode_used: [Mode 1/2/3]
-</requirement>
 
-**You MUST complete ALL three requirements before proceeding to decision menu.**
+**Complete all three requirements before proceeding to decision menu.**
 
-VERIFY both state files updated before presenting next steps.
+**Error Handling**: If any requirement fails (file write error, missing plugin entry), report the specific error to the user and abort state update. Do not present the decision menu with incomplete state.
+
+VERIFY both state files updated successfully before presenting next steps.
 </state_requirement>
 
 ## Success Criteria
@@ -262,31 +308,35 @@ Testing is successful when:
 
 **Invoked by:**
 
-- `/test [PluginName]` command
-- `/test [PluginName] build` → Direct to mode 2
-- `/test [PluginName] quick` → Direct to mode 1
-- `/test [PluginName] manual` → Direct to mode 3
-- `plugin-workflow` skill → After Stages 4, 5, 6
-- `plugin-improve` skill → After implementing changes
-- Natural language: "Test [PluginName]", "Run validation on [PluginName]"
+**Commands:**
+- `/test [PluginName]` → Mode selection menu
+- `/test [PluginName] build` → Direct to Mode 2 (pluginval)
+- `/test [PluginName] quick` → Direct to Mode 1 (automated)
+- `/test [PluginName] manual` → Direct to Mode 3 (DAW testing)
 
-**Invokes (future):**
+**Skills:**
+- `plugin-workflow` → After Stages 4, 5, 6 (validation checkpoints)
+- `plugin-improve` → After implementing bug fixes or features
 
-- `deep-research` skill (Phase 7) → When user chooses "Investigate failures"
+**Natural Language:**
+- "Test [PluginName]"
+- "Run validation on [PluginName]"
+- "Check [PluginName] for crashes"
+
+**Invokes:**
+
+- `deep-research` skill → When user chooses "Investigate failures"
 
 **Creates:**
 
-- Test logs in `logs/[PluginName]/test_[timestamp].log`
-- Build artifacts in `build/plugins/[PluginName]/`
+- Test logs in `logs/{PLUGIN_NAME}/test_[timestamp].log`
+- Build artifacts in `build/plugins/{PLUGIN_NAME}/`
 
 **Updates:**
 
 - `.continue-here.md` → Testing checkpoint
 - `PLUGINS.md` → Test status
 
-**Blocks:**
-
-- Installation (`/install-plugin`) → Recommends testing first if not done recently
 
 ## Reference Documentation
 

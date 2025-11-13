@@ -1,9 +1,3 @@
----
-name: destroy
-description: Completely remove plugin - source code, binaries, registry entries, everything
-args: "[PluginName]"
----
-
 # /destroy - Nuclear Cleanup
 
 **Purpose:** Completely annihilate a plugin and all traces of it from the system.

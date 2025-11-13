@@ -160,3 +160,56 @@ questions:
 ### Common Trap to Avoid:
 **Don't ask about what's already known.**
 If user says "tape delay with wow and flutter," do NOT ask "What type of effect?" (already know: delay with modulation character)
+
+---
+
+## New Plugin Mode: Question Batch Examples
+
+This section shows the exact format for question batches using the AskUserQuestion tool.
+
+**Example question batch (via AskUserQuestion):**
+
+For the tape delay example above:
+
+```
+Question 1:
+  question: "What should the third knob control?"
+  header: "Third control"
+  options:
+    - label: "Mix", description: "Blend dry/wet signal"
+    - label: "Feedback", description: "Delay regeneration amount"
+    - label: "Tone", description: "High-frequency filtering"
+    - label: "Other", description: "Custom input"
+
+Question 2:
+  question: "What ranges for wow and flutter?"
+  header: "Modulation depth"
+  options:
+    - label: "Subtle 0-5%", description: "Natural tape variation"
+    - label: "Moderate 0-15%", description: "Noticeable character"
+    - label: "Extreme 0-50%", description: "Creative warping"
+    - label: "Other", description: "Custom ranges"
+
+Question 3:
+  question: "Any specific tape reference?"
+  header: "Inspiration"
+  options:
+    - label: "Echoplex 1950s-60s", description: "Classic tube preamp warmth"
+    - label: "Space Echo 1970s-80s", description: "Spring reverb character"
+    - label: "Modern tape sim", description: "Clean, controllable"
+    - label: "Other", description: "Different reference or none"
+
+Question 4:
+  question: "Primary use case?"
+  header: "Usage"
+  options:
+    - label: "Mixing depth", description: "Subtle layering and space"
+    - label: "Creative effects", description: "Aggressive, noticeable"
+    - label: "Both", description: "Versatile range"
+    - label: "Other", description: "Different use case"
+```
+
+**After receiving answers:**
+1. Accumulate context with previous responses
+2. Re-analyze gaps
+3. Proceed to decision gate

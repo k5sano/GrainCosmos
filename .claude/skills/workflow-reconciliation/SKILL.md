@@ -24,6 +24,19 @@ Detect current workflow context, validate state file currency, and remediate gap
   3. Gap Analysis → Compare filesystem vs expected state
   4. Report Generation → Show gaps with proposed fixes
   5. Remediation → Execute user's chosen fix strategy
+
+  <progress_tracking>
+    Copy this checklist to track reconciliation progress:
+
+    ```
+    Reconciliation Progress:
+    - [ ] Phase 1: Context Detection
+    - [ ] Phase 2: Rule Loading
+    - [ ] Phase 3: Gap Analysis
+    - [ ] Phase 4: Report Generation
+    - [ ] Phase 5: Remediation Execution
+    ```
+  </progress_tracking>
 </orchestration_pattern>
 
 ## Phase 1: Context Detection
@@ -62,7 +75,15 @@ Detect current workflow context, validate state file currency, and remediate gap
     - MUST identify plugin name (if workflow is plugin-specific)
 
     IF unable to detect context:
-      BLOCK with error: "Cannot determine workflow context. Please provide plugin name or run from plugin directory."
+      BLOCK with error showing what was detected:
+      "Cannot determine workflow context.
+
+      Detected:
+      - Plugin: {name or UNKNOWN}
+      - Workflow: {name or UNKNOWN}
+      - Stage/Phase: {value or UNKNOWN}
+
+      Suggestion: Provide plugin name as argument (/reconcile [PluginName]) or run from plugin directory."
   </validation>
 </context_detection>
 
@@ -72,8 +93,9 @@ Detect current workflow context, validate state file currency, and remediate gap
   <rule_loading>
     1. Load assets/reconciliation-rules.json
     2. Lookup workflow name from context detection
-    3. Lookup stage/phase from context detection
+    3. Lookup stage (for plugin-workflow) or phase (for other workflows) from context detection
     4. Extract reconciliation rule for current workflow + stage/phase
+    5. If workflow not found in reconciliation-rules.json: BLOCK with error "Unknown workflow: {name}"
   </rule_loading>
 
   <rule_application>
@@ -91,7 +113,8 @@ Detect current workflow context, validate state file currency, and remediate gap
   <validation_sequence enforce_order="true">
     <check order="1" category="file_existence" required="true">
       For each required_file in reconciliation rule:
-        - Check file exists at expected path
+        - Check file exists at expected path (relative to plugins/{PluginName}/)
+        - Example: CMakeLists.txt → plugins/{PluginName}/CMakeLists.txt
         - Record as GAP if missing
     </check>
 
@@ -119,9 +142,15 @@ Detect current workflow context, validate state file currency, and remediate gap
   <gap_aggregation>
     Aggregate all gaps into structured report:
     {
-      "file_existence_gaps": [...],
-      "state_currency_gaps": [...],
-      "git_status_gaps": [...]
+      "file_existence_gaps": [
+        {"file": "CMakeLists.txt", "status": "missing", "expected_path": "plugins/{PluginName}/CMakeLists.txt"}
+      ],
+      "state_currency_gaps": [
+        {"file": ".continue-here.md", "field": "stage", "current": "2", "expected": "3"}
+      ],
+      "git_status_gaps": [
+        {"file": "Source/PluginProcessor.cpp", "status": "modified", "staged": false}
+      ]
     }
   </gap_aggregation>
 
@@ -173,7 +202,7 @@ Detect current workflow context, validate state file currency, and remediate gap
 
       <discovery_option>
         If workflow is plugin-workflow AND stage >= 4:
-          Add option: "Design sync ← Validate mockup matches brief"
+          Add as final option before "Other": "Run design sync ← Validate mockup matches brief (invokes design-sync skill)"
       </discovery_option>
     </decision_menu>
 
@@ -192,26 +221,69 @@ Detect current workflow context, validate state file currency, and remediate gap
     1. Update all state files with current context
     2. Create missing required files (if possible)
     3. Stage all changes: git add [files]
+       - If git add fails: Show error message and return to decision menu
     4. Commit with workflow-appropriate message
+       - Verify commit succeeded: git log -1 --oneline
+       - If commit fails: Show error message and return to decision menu
     5. Confirm completion
+
+    <error_handling>
+      If any git operation fails:
+      - Display error message to user
+      - Return to decision menu (Phase 4)
+      - Do NOT proceed with incomplete remediation
+      - For persistent git issues, suggest: "Run /research for investigation"
+    </error_handling>
   </strategy>
 
   <strategy id="show_diffs_first">
-    1. For each file to be updated: show current vs new content
-    2. Highlight differences
-    3. Return to decision menu
+    1. For each file to be updated: show unified diff format
+       - Use --- (current) and +++ (new) markers
+       - Highlight changed lines with - (removed) and + (added)
+    2. Wait for user confirmation
+    3. Return to decision menu with modified options:
+       - Proceed with commit
+       - Abort reconciliation
+       - Other
+
+    <error_handling>
+      If any git operation fails:
+      - Display error message to user
+      - Return to decision menu (Phase 4)
+      - Do NOT proceed with incomplete remediation
+      - For persistent git issues, suggest: "Run /research for investigation"
+    </error_handling>
   </strategy>
 
   <strategy id="fix_files_only">
     1. Update state files (.continue-here.md, PLUGINS.md)
+       - Verify files written successfully
+       - Check .continue-here.md YAML is valid
+       - Check PLUGINS.md entry format is correct
     2. Do NOT stage or commit
     3. Confirm files updated
+
+    <error_handling>
+      If file update fails:
+      - Display error message to user
+      - Return to decision menu (Phase 4)
+      - Do NOT proceed with incomplete remediation
+    </error_handling>
   </strategy>
 
   <strategy id="update_handoff_only">
     1. Update .continue-here.md with current context
+       - Verify file written successfully
+       - Check YAML is valid
     2. Leave other files unchanged
     3. Confirm minimal checkpoint complete
+
+    <error_handling>
+      If file update fails:
+      - Display error message to user
+      - Return to decision menu (Phase 4)
+      - Do NOT proceed with incomplete remediation
+    </error_handling>
   </strategy>
 
   <strategy id="skip_reconciliation">
@@ -222,15 +294,25 @@ Detect current workflow context, validate state file currency, and remediate gap
 
 ## Reference Files
 
-- [reconciliation-rules.json](assets/reconciliation-rules.json) - Workflow-specific expectations
+- [reconciliation-rules.json](assets/reconciliation-rules.json) - Workflow-specific expectations (includes commit message templates)
 - [handoff-formats.md](references/handoff-formats.md) - .continue-here.md structure per workflow
-- [commit-templates.md](references/commit-templates.md) - Conventional commit formats
 - [reconciliation-examples.md](assets/reconciliation-examples.md) - Example reports and outputs
 
 ## Success Criteria
 
 Reconciliation succeeds when:
-- All state files reflect current workflow state
-- Git status shows no uncommitted workflow artifacts
+
+**State Files**:
+- .continue-here.md exists with current workflow, stage/phase, and timestamp
+- PLUGINS.md status emoji matches expected state for current stage
+- All required_files from reconciliation rule exist at expected paths
+
+**Git Status**:
+- No uncommitted workflow artifacts (all tracked files clean or committed)
+- No staged but uncommitted changes
+- Latest commit message follows workflow-appropriate convention
+
+**Workflow Continuity**:
 - Workflow can resume without context loss
 - No checkpoint amnesia at workflow boundaries
+- State files pass reconciliation-rules.json validation

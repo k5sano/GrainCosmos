@@ -48,6 +48,33 @@ preconditions:
 
 All files saved to: `plugins/[PluginName]/.ideas/mockups/`
 
+## Workflow Context Detection
+
+This skill operates in two modes:
+
+**Standalone Mode**:
+- Invoked directly via natural language or /dream command
+- No workflow state files present
+- Generates mockups independently
+- Skips state updates to .continue-here.md
+
+**Workflow Mode**:
+- Invoked by plugin-workflow skill during Stage 0
+- File exists: `plugins/[PluginName]/.continue-here.md`
+- File contains: `current_stage` field
+- Updates workflow state after each phase
+
+**Detection Logic**:
+```bash
+if [ -f "plugins/[PluginName]/.continue-here.md" ]; then
+    # Workflow mode: update state files
+    WORKFLOW_MODE=true
+else
+    # Standalone mode: skip state updates
+    WORKFLOW_MODE=false
+fi
+```
+
 ## Phase 0: Check for Aesthetic Library
 
 **Before starting design, check if saved aesthetics exist.**
@@ -130,14 +157,22 @@ fi
 
 **Note:** preconditions="None" means skill can work standalone without creative-brief.md, but MUST read it when present.
 
+**Context extraction checklist:**
+- Plugin type (compressor, EQ, reverb, synth, utility)
+- Parameter count and types (sliders, toggles, combos)
+- Visual style mentions (vintage, modern, minimal, skeuomorphic)
+- Layout preferences (horizontal, vertical, grid, custom)
+- Special elements (meters, waveforms, visualizers, animations)
+- Color/theme references (dark, light, specific colors)
+
+**See:** `references/context-extraction.md#example-extracting-from-creative-brief` for detailed extraction examples and guidelines
+
 **Extract UI context from creative-brief.md:**
 
 - **UI Concept section:** Layout preferences, visual style mentions
 - **Parameters:** Count and types (determines control layout)
 - **Plugin type:** Effect/synth/utility (affects typical layouts)
 - **Vision section:** Any visual references or inspirations
-
-**Context extraction:** See `references/context-extraction.md#example-extracting-from-creative-brief` for detailed examples and guidelines
 
 ## Phase 1.5: Context-Aware Initial Prompt
 
@@ -312,6 +347,39 @@ Route based on answer:
 - controls: Array of control definitions (id, type, position, range)
 - styling: Colors, fonts, theme tokens
 
+**Example YAML structure:**
+```yaml
+window:
+  width: 600
+  height: 400
+  resizable: false
+
+controls:
+  - id: threshold
+    type: slider
+    position: { x: 50, y: 100 }
+    range: [-60.0, 0.0]
+    default: -20.0
+    label: "Threshold"
+
+  - id: ratio
+    type: slider
+    position: { x: 200, y: 100 }
+    range: [1.0, 20.0]
+    default: 4.0
+    label: "Ratio"
+
+styling:
+  colors:
+    background: "#2a2a2a"
+    foreground: "#ffffff"
+    accent: "#ff6b35"
+  fonts:
+    primary: "Arial, sans-serif"
+```
+
+**See:** `assets/ui-yaml-template.yaml` for complete template with all control types.
+
 ## Phase 5: Generate Browser Test HTML
 
 **Create:** `plugins/[Name]/.ideas/mockups/v[N]-ui-test.html`
@@ -327,7 +395,15 @@ Route based on answer:
 - Same visual as production will be
 - No JUCE/WebView required
 
-**See:** `references/browser-testing.md` for testing guidelines
+**Critical WebView Constraints** (enforced in Phase 5.3):
+- ❌ NO viewport units: `100vh`, `100vw`, `100dvh`, `100svh` (causes blank screens)
+- ✅ REQUIRED: `html, body { height: 100%; }` for full-screen layouts
+- ✅ REQUIRED: `user-select: none` for native plugin feel
+- ✅ REQUIRED: Context menu disabled via JavaScript `contextmenu` event
+
+**Why these matter**: Viewport units cause blank screens in JUCE WebView (JUCE 8 limitation). Missing user-select allows text selection (breaks plugin feel). Without context menu disable, right-click shows browser menu (not plugin-appropriate).
+
+**See:** `references/ui-design-rules.md` for complete constraint list and validation patterns, and `references/browser-testing.md` for testing guidelines
 
 ## Phase 5.3: Validate WebView Constraints (Before Decision Menu)
 
@@ -475,105 +551,11 @@ fi
 
 ## Decision Menu (Required - Phase 5.5)
 
-When Phase A completes, MUST present this menu and WAIT for user choice:
+When Phase A completes, MUST present decision menu and WAIT for user choice.
 
-```
-✓ Mockup v${LATEST_VERSION} design created (2 files)
+**Menu format and option routing:** See `references/decision-menus.md#phase-5-5-design-decision-menu`
 
-Files generated:
-- v${LATEST_VERSION}-ui.yaml (design specification)
-- v${LATEST_VERSION}-ui-test.html (browser-testable mockup)
-
-What would you like to do?
-
-1. Iterate - Refine design, adjust layout
-2. Finalize - Validate alignment and complete mockup
-3. Save as template - Add to aesthetic library for reuse
-4. Other
-
-Choose (1-4): _
-```
-
-## Option Handling and Phase B Blocking
-
-<option id="1" name="Iterate on design">
-  **Action:** Stay in Phase A, collect feedback, increment version to v[N+1]
-
-  **Phase B status:** BLOCKED (not ready for implementation)
-
-  **Implementation:**
-  - Collect user feedback on what to change
-  - Increment version number: NEXT_VERSION=$((LATEST_VERSION + 1))
-  - Return to Phase 2 (gap analysis) with new context
-  - Generate v[N+1]-ui.yaml and v[N+1]-ui-test.html
-  - Do NOT proceed to Phases 6-10
-</option>
-
-<option id="2" name="Finalize design">
-  **This is the ONLY option that proceeds to Phase B (files 3-7)**
-
-  Before proceeding, verify gate criteria:
-
-  <gate_criteria>
-    1. **WebView constraints validation** (Phase 5.3 already executed)
-       - No viewport units (100vh, 100vw) in CSS
-       - Native feel CSS present (user-select: none)
-       - Context menu disabled in JavaScript
-       - Required html/body height: 100%
-
-    2. **Creative brief validation** (Phase 5.6 automatic)
-       - If creative-brief.md exists: Invoke design-sync skill
-       - Verify UI concept matches brief vision
-       - Check all parameters from brief have controls
-       - Verify parameter counts match
-
-    3. **User explicitly confirmed finalization**
-       - User selected option 2 from Phase 5.5 menu
-  </gate_criteria>
-
-  **If all criteria met:**
-  - Mark design as finalized in YAML file
-  - Proceed to Phase 5.6 (automatic validation gate)
-  - Then proceed to Phase 6-10 (generate 5 implementation files)
-
-  **If any criteria fail:**
-  - Show validation errors with specific issues
-  - Return to Phase 5.5 decision menu
-  - Block Phase B until issues resolved or user overrides
-</option>
-
-<option id="3" name="Save as template">
-  **Action:** Invoke ui-template-library skill, then return to decision menu
-
-  **Phase B status:** BLOCKED until design finalized via option 2
-
-  **Implementation:**
-  ```
-  Invoke Skill tool:
-  - skill: "ui-template-library"
-  - context: "Save aesthetic from plugins/[PluginName]/.ideas/mockups/v[N]-ui-test.html"
-  ```
-
-  After ui-template-library completes:
-  - Return to Phase 5.5 decision menu
-  - User must still select option 2 to proceed to Phase B
-</option>
-
-<option id="4" name="Other">
-  **Action:** Collect user input, handle custom request, reassess
-
-  **Phase B status:** BLOCKED until valid finalization option selected
-
-  **Common "Other" requests:**
-  - "Test in browser again" → Reopen v[N]-ui-test.html
-  - "Validate WebView constraints" → Re-run Phase 5.3 checks
-  - "Show me the YAML" → Display v[N]-ui.yaml contents
-  - "Exit and save progress" → Update state, exit skill
-
-  After handling request:
-  - Return to Phase 5.5 decision menu
-  - User must select option 2 to proceed to Phase B
-</option>
+**Gate enforcement:** Phases 6-10 are CONDITIONALLY EXECUTED based on user choice. Only option 2 (Finalize) proceeds to Phase B.
 
 ## State Tracking (Finalization Marker)
 
@@ -595,77 +577,24 @@ EOF
 - Tracks which version was approved for implementation
 - Enables version history queries (which designs were finalized vs exploratory)
 
-## Phase B Guard (Before Phases 6-10)
+## Phase B Guard Protocol
 
-Before generating any Phase B file (production HTML, C++ boilerplate, CMake, checklist), VERIFY finalization:
+Before generating any Phase B file (Phases 6-10), verify design finalization.
 
-```bash
-# Check finalization marker before Phase B
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase B requires finalized design"
-  echo ""
-  echo "Phase B (implementation scaffolding) cannot proceed without approval."
-  echo "Current status: Design iteration (Phase A only)"
-  echo ""
-  echo "To proceed:"
-  echo "1. Test the design in browser (v${LATEST_VERSION}-ui-test.html)"
-  echo "2. Return to Phase 5.5 decision menu"
-  echo "3. Select option 2 (Finalize) to approve design"
-  echo ""
-  exit 1
-fi
+**See:** `references/phase-b-enforcement.md` for complete guard implementation.
 
-# If we reach here, design is finalized - safe to proceed to Phase B
-echo "✓ Design finalized - proceeding to Phase B (implementation files)"
-```
+## Anti-Patterns to Avoid
 
-**Integration points for Phase B guard:**
-- **Before Phase 6** (production HTML generation)
-- **Before Phase 7** (C++ boilerplate generation)
-- **Before Phase 8** (CMake snippet generation)
-- **Before Phase 9** (integration checklist generation)
-- **Before Phase 10** (parameter-spec.md creation)
+**Critical rule: NEVER generate Phase B files (3-7) without Phase 5.5 menu approval.**
 
-## Anti-Pattern Documentation
+**See:** `references/common-pitfalls.md` for detailed anti-patterns and why they matter.
 
-<anti_pattern severity="HIGH">
-**Premature scaffolding generation:**
-
-❌ NEVER generate Phase B files (3-7) without user approval from Phase 5.5 menu
-
-❌ NEVER skip the Phase 5.5 decision menu after Phase A completes
-
-❌ NEVER assume design is ready for implementation without explicit "Finalize" choice
-
-❌ NEVER proceed to Phases 6-10 if finalization marker is missing from YAML
-
-✓ ALWAYS present Phase 5.5 decision menu after Phase A (files 1-2 generated)
-
-✓ ALWAYS wait for explicit option 2 (Finalize) choice before Phase B
-
-✓ ALWAYS verify gate criteria (WebView constraints + creative brief validation)
-
-✓ ALWAYS check finalization marker in YAML before generating any Phase B file
-
-**Why this matters:**
-
-The entire two-phase design is to avoid generating C++ boilerplate (files 3-7) when design is still changing. If you generate all 7 files at once:
-
-1. User tests design in browser
-2. User wants to change layout/colors/controls
-3. Phase A files (1-2) regenerated ✓
-4. Phase B files (3-7) now outdated and must be regenerated ✗
-5. Wasted time on boilerplate that became obsolete
-
-**The correct flow:**
-
-1. Generate Phase A (YAML + test HTML) → commit → present menu
-2. User iterates (option 1) OR finalizes (option 2)
-3. If iterate: stay in Phase A, increment version, repeat
-4. If finalize: validate, mark as finalized, proceed to Phase B
-5. Generate Phase B files (3-7) ONLY for finalized design
-6. Implementation files match locked design (no drift)
-</anti_pattern>
+**Quick checklist:**
+- ✓ Present Phase 5.5 menu after Phase A
+- ✓ Wait for option 2 (Finalize) before Phase B
+- ✓ Check finalization marker in YAML
+- ✓ Validate WebView constraints (Phase 5.3)
+- ✓ Read creative-brief.md if it exists
 
 </phase_gate_enforcement>
 
@@ -775,26 +704,18 @@ Choose (1-4): _
 <conditional_execution requires_gate="phase_5_5_approval">
 <critical_sequence phases="6,7,8,9,10" enforcement="sequential">
 
-## Phase 6: Generate Production HTML (After Finalization Only)
+## Phase B: Implementation Scaffolding (Phases 6-10)
 
-**Prerequisites:**
+**Prerequisites for ALL Phase B phases:**
 - User confirmed design in Phase 5.5 decision menu (selected option 2: Finalize)
-- Phase B guard verification passed (finalized: true marker in YAML)
+- Execute Phase B guard from `references/phase-b-enforcement.md` before each phase
+- Phase A files (v[N]-ui.yaml and v[N]-ui-test.html) exist and validated
 
-**ENFORCEMENT: Before proceeding, execute Phase B guard check from phase_gate_enforcement block:**
+These prerequisites apply to Phases 6, 7, 8, 9, and 10. Verify guard before proceeding to any Phase B phase.
 
-```bash
-# Verify design finalization before Phase B
-MOCKUP_DIR="plugins/${PLUGIN_NAME}/.ideas/mockups"
-LATEST_VERSION=$(ls -1 "$MOCKUP_DIR"/v*-ui.yaml 2>/dev/null | \
-                 sed 's/.*v\([0-9]*\)-.*/\1/' | sort -n | tail -1)
+---
 
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase 6 requires finalized design"
-  echo "Return to Phase 5.5 and select option 2 (Finalize)"
-  exit 1
-fi
-```
+## Phase 6: Generate Production HTML (After Finalization Only)
 
 **Create:** `plugins/[Name]/.ideas/mockups/v[N]-ui.html`
 
@@ -852,24 +773,11 @@ for (const match of comboMatches) {
 
 ## Phase 7: Generate C++ Boilerplate (After Finalization Only)
 
-**Prerequisites:**
-- User confirmed design in Phase 5.5 decision menu (selected option 2: Finalize)
-- Phase B guard verification passed (finalized: true marker in YAML)
-
-**ENFORCEMENT: Before proceeding, execute Phase B guard check:**
-
-```bash
-# Verify design finalization before Phase B
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase 7 requires finalized design"
-  echo "Return to Phase 5.5 and select option 2 (Finalize)"
-  exit 1
-fi
-```
-
 **Create:**
-- `plugins/[Name]/.ideas/mockups/v[N]-PluginEditor.h`
-- `plugins/[Name]/.ideas/mockups/v[N]-PluginEditor.cpp`
+- `plugins/[Name]/.ideas/mockups/v[N]-PluginEditor-TEMPLATE.h`
+- `plugins/[Name]/.ideas/mockups/v[N]-PluginEditor-TEMPLATE.cpp`
+
+**Note**: These files are REFERENCE TEMPLATES for gui-agent, not copy-paste files. gui-agent uses these as starting point during Stage 5.
 
 **Purpose:** WebView integration boilerplate for Stage 5 (GUI).
 
@@ -897,22 +805,9 @@ fi
 
 ## Phase 8: Generate Build Configuration (After Finalization Only)
 
-**Prerequisites:**
-- User confirmed design in Phase 5.5 decision menu (selected option 2: Finalize)
-- Phase B guard verification passed (finalized: true marker in YAML)
+**Create:** `plugins/[Name]/.ideas/mockups/v[N]-CMakeLists-SNIPPET.txt`
 
-**ENFORCEMENT: Before proceeding, execute Phase B guard check:**
-
-```bash
-# Verify design finalization before Phase B
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase 8 requires finalized design"
-  echo "Return to Phase 5.5 and select option 2 (Finalize)"
-  exit 1
-fi
-```
-
-**Create:** `plugins/[Name]/.ideas/mockups/v[N]-CMakeLists.txt`
+**Note**: This snippet is appended to CMakeLists.txt by gui-agent, not used standalone.
 
 **Purpose:** CMake snippet to enable WebView support in JUCE.
 
@@ -929,21 +824,6 @@ fi
 **See:** `references/cmake-generation.md` for complete template structure and integration instructions
 
 ## Phase 9: Generate Integration Checklist (After Finalization Only)
-
-**Prerequisites:**
-- User confirmed design in Phase 5.5 decision menu (selected option 2: Finalize)
-- Phase B guard verification passed (finalized: true marker in YAML)
-
-**ENFORCEMENT: Before proceeding, execute Phase B guard check:**
-
-```bash
-# Verify design finalization before Phase B
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase 9 requires finalized design"
-  echo "Return to Phase 5.5 and select option 2 (Finalize)"
-  exit 1
-fi
-```
 
 **Create:** `plugins/[Name]/.ideas/mockups/v[N]-integration-checklist.md`
 
@@ -1009,20 +889,10 @@ fi
 ## Phase 10: Finalize parameter-spec.md (After Finalization Only)
 
 **Prerequisites:**
-- User confirmed design in Phase 5.5 decision menu (selected option 2: Finalize)
-- Phase B guard verification passed (finalized: true marker in YAML)
 - This is the first mockup version (v1 only)
 
-**ENFORCEMENT: Before proceeding, execute Phase B guard check:**
-
+**Version check:**
 ```bash
-# Verify design finalization before Phase B
-if ! grep -q "finalized: true" "$MOCKUP_DIR/v${LATEST_VERSION}-ui.yaml"; then
-  echo "✗ BLOCKED: Phase 10 requires finalized design"
-  echo "Return to Phase 5.5 and select option 2 (Finalize)"
-  exit 1
-fi
-
 # Only generate parameter-spec.md for v1
 if [ "$LATEST_VERSION" != "1" ]; then
   echo "ℹ Skipping parameter-spec.md (already exists from v1)"
@@ -1055,6 +925,19 @@ fi
 ```
 
 **See:** `assets/parameter-spec-template.md`
+
+### Parameter ID Naming Convention
+
+Parameter IDs generated in YAML must follow these rules:
+- **Lowercase only**: `threshold` not `Threshold`
+- **snake_case for multi-word**: `attack_time` not `attackTime` or `AttackTime`
+- **Alphanumeric + underscore**: No spaces, hyphens, or special chars
+- **Max 32 characters**: Keep concise for readability
+- **Valid C++ identifier**: Must compile in PluginProcessor.cpp
+
+**Examples**:
+- ✓ `threshold`, `ratio`, `attack_time`, `release_ms`
+- ✗ `Threshold`, `attack-time`, `release (ms)`, `really_long_parameter_name_over_32_chars`
 
 <state_requirement>
 <commit_protocol phase="finalization">
@@ -1120,19 +1003,9 @@ finalized_version: 2
 
 ## After Completing All Phases
 
-Once user has finalized a design and all 7 files are generated, present this menu:
+Present completion menu after all 7 files generated.
 
-```
-✓ Mockup v[N] complete (7 files generated)
-
-What's next?
-1. Start implementation (invoke plugin-workflow)
-2. Create another UI version (explore alternative design)
-3. Test in browser (open v[N]-ui-test.html)
-4. Other
-
-Choose (1-4): _
-```
+**Menu format and option routing:** See `references/decision-menus.md#completion-menu`
 
 ## Versioning Strategy
 

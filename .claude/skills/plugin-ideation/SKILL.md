@@ -34,6 +34,19 @@ grep "^### $PLUGIN_NAME$" PLUGINS.md
 
 ## New Plugin Mode
 
+**New Plugin Workflow Progress Checklist:**
+```
+Track completion as you progress through the workflow:
+- [ ] Phase 1: Free-form collection
+- [ ] Phase 2: Gap analysis
+- [ ] Phase 3: Question batch generation
+- [ ] Phase 4: Decision gate (finalize or iterate)
+- [ ] Phase 5: Plugin name validation (if needed)
+- [ ] Phase 6: Document creation (creative-brief.md)
+- [ ] Phase 7: Session handoff (.continue-here.md)
+- [ ] Phase 8: Decision menu (next action)
+```
+
 <critical_sequence>
 <sequence_name>new_plugin_workflow</sequence_name>
 <enforcement>must_complete_in_order</enforcement>
@@ -42,11 +55,11 @@ grep "^### $PLUGIN_NAME$" PLUGINS.md
 ### Phase 1: Free-Form Collection
 
 <step number="1" required="true">
-MUST start with open question:
+Must start with open question:
 ```
 What would you like to build?
 
-Tell me about your plugin idea. Share as much or as little as you want—I'll ask follow-ups for anything missing.
+Tell me about your plugin idea. Share as much or as little as you want—I'll ask follow-ups to fill any gaps in type, concept, parameters, and use cases.
 ```
 
 **Extract from response:**
@@ -98,56 +111,17 @@ Gaps identified:
 ### Phase 3: Question Batch Generation
 
 <step number="3" required="true">
-**MUST generate exactly 4 questions using AskUserQuestion based on identified gaps.**
+**Must generate exactly 4 questions using AskUserQuestion based on identified gaps (4 questions balance thoroughness with user fatigue).**
 
 **Rules:**
 - If 4+ gaps exist: ask top 4 by tier priority
-- If fewer gaps exist: pad with "nice to have" tier 3 questions
+- If 3 gaps exist: ask 3 questions (not 4) and proceed to decision gate
+- If <3 gaps exist: pad with "nice to have" tier 3 questions to reach 4
 - Provide meaningful options (not just open text prompts)
 - Always include "Other" option for custom input
 - Users can skip questions via "Other" option and typing "skip"
 
-**Example question batch (via AskUserQuestion):**
-
-For the tape delay example above:
-
-```
-Question 1:
-  question: "What should the third knob control?"
-  header: "Third control"
-  options:
-    - label: "Mix", description: "Blend dry/wet signal"
-    - label: "Feedback", description: "Delay regeneration amount"
-    - label: "Tone", description: "High-frequency filtering"
-    - label: "Other", description: "Custom input"
-
-Question 2:
-  question: "What ranges for wow and flutter?"
-  header: "Modulation depth"
-  options:
-    - label: "Subtle 0-5%", description: "Natural tape variation"
-    - label: "Moderate 0-15%", description: "Noticeable character"
-    - label: "Extreme 0-50%", description: "Creative warping"
-    - label: "Other", description: "Custom ranges"
-
-Question 3:
-  question: "Any specific tape reference?"
-  header: "Inspiration"
-  options:
-    - label: "Echoplex 1950s-60s", description: "Classic tube preamp warmth"
-    - label: "Space Echo 1970s-80s", description: "Spring reverb character"
-    - label: "Modern tape sim", description: "Clean, controllable"
-    - label: "Other", description: "Different reference or none"
-
-Question 4:
-  question: "Primary use case?"
-  header: "Usage"
-  options:
-    - label: "Mixing depth", description: "Subtle layering and space"
-    - label: "Creative effects", description: "Aggressive, noticeable"
-    - label: "Both", description: "Versatile range"
-    - label: "Other", description: "Different use case"
-```
+**See [adaptive-questioning-examples.md](references/adaptive-questioning-examples.md) for detailed question batch examples.**
 
 **After receiving answers:**
 1. Accumulate context with previous responses
@@ -155,7 +129,7 @@ Question 4:
 3. Proceed to decision gate
 </step>
 
-### Phase 3.5: Decision Gate
+### Phase 4: Decision Gate
 
 <decision_gate>
 <gate_name>finalize_or_continue</gate_name>
@@ -163,7 +137,7 @@ Question 4:
 <checkpoint_protocol>true</checkpoint_protocol>
 
 <step number="4" required="true">
-**MUST use AskUserQuestion with 3 options after each question batch:**
+**Must use AskUserQuestion with 3 options after each question batch:**
 
 ```
 Question:
@@ -175,10 +149,10 @@ Question:
     - label: "Let me add more context first", description: "Provide additional details"
 ```
 
-**MUST wait for user response. NEVER auto-proceed.**
+**Must wait for user response. **Never** auto-proceed.**
 
 **Route based on answer:**
-- Option 1 → Proceed to Phase 4 (document creation)
+- Option 1 → Proceed to Phase 6 (document creation)
 - Option 2 → Return to Phase 2 (re-analyze gaps, generate next 4 questions)
 - Option 3 → Collect free-form text, merge with context, return to Phase 2
 </step>
@@ -199,12 +173,12 @@ New gaps for Batch 2:
 - Tempo sync? (Tier 3)
 - Specific Space Echo model reference? (Tier 3)
 
-### Phase 3.7: Plugin Name (if not yet provided)
+### Phase 5: Plugin Name (if not yet provided)
 
 <step number="5" required="true">
-**MUST check if plugin name was provided before creating documents.**
+**Must check if plugin name was provided before creating documents.**
 
-If name NOT yet provided, MUST ask via AskUserQuestion:
+If name NOT yet provided, Must ask via AskUserQuestion:
 
 ```
 Question:
@@ -231,10 +205,10 @@ Examples:
 - If user provides invalid name, suggest cleaned version
 </step>
 
-### Phase 4: Document Creation
+### Phase 6: Document Creation
 
 <step number="6" required="true">
-**MUST wait until user chooses "finalize" and name is confirmed, then create:**
+**Must wait until user chooses "finalize" and name is confirmed, then create:**
 
 **File:** `plugins/[PluginName]/.ideas/creative-brief.md`
 
@@ -301,12 +275,12 @@ Add entry if doesn't exist:
 ```
 </step>
 
-### Phase 5: Session Handoff
+### Phase 7: Session Handoff
 
 <state_requirement>
 <requirement>must_create_continue_file</requirement>
 <step number="7" required="true">
-**MUST create handoff file for resuming later:**
+**Must create handoff file for resuming later:**
 
 **File:** `plugins/[PluginName]/.continue-here.md`
 
@@ -351,7 +325,7 @@ Creative brief has been finalized for [PluginName]. Ready to proceed to UI mocku
 </step>
 </state_requirement>
 
-### Phase 6: Decision Menu
+### Phase 8: Decision Menu
 
 <decision_gate>
 <gate_name>next_action</gate_name>
@@ -359,7 +333,7 @@ Creative brief has been finalized for [PluginName]. Ready to proceed to UI mocku
 <checkpoint_protocol>true</checkpoint_protocol>
 
 <step number="8" required="true">
-**MUST present next steps:**
+**Must present next steps:**
 
 ```
 ✓ Creative brief complete: [PluginName]
@@ -379,20 +353,19 @@ Choose (1-5): _
 
 <delegation_rule skill="ui-mockup" trigger="option_1">
 - Condition: User chooses option 1
-- Action: MUST invoke ui-mockup skill via Skill tool
+- Action: Must invoke ui-mockup skill via Skill tool
 - Do NOT attempt to create mockup within this skill
 </delegation_rule>
 
 <delegation_rule skill="plugin-workflow" trigger="option_2">
 - Condition: User chooses option 2
-- Action: MUST invoke plugin-workflow skill via Skill tool
-- Warning: MUST warn user about contract requirements before delegating
+- Action: Must invoke plugin-workflow skill via Skill tool
+- Warning: Must warn user about contract requirements before delegating
 </delegation_rule>
 
 <delegation_rule skill="deep-research" trigger="option_3">
 - Condition: User chooses option 3
-- Action: MUST invoke deep-research skill via Skill tool
-- Note: deep-research skill is fully implemented (Phase 7 complete)
+- Action: Must invoke deep-research skill via Skill tool
 </delegation_rule>
 
 - Option 4 → Confirm handoff file created, exit
@@ -405,6 +378,19 @@ Choose (1-5): _
 </critical_sequence>
 
 ## Improvement Mode
+
+**Improvement Workflow Progress Checklist:**
+```
+Track completion as you progress through the workflow:
+- [ ] Phase 0: Vagueness detection (brainstorm vs implement)
+- [ ] Phase 1: Free-form collection
+- [ ] Phase 2: Gap analysis
+- [ ] Phase 3: Question batch generation
+- [ ] Phase 4: Decision gate (finalize or iterate)
+- [ ] Phase 5: Document creation (improvement proposal)
+- [ ] Phase 6: Session handoff (.continue-here.md)
+- [ ] Phase 7: Decision menu (next action)
+```
 
 <critical_sequence>
 <sequence_name>improvement_workflow</sequence_name>
@@ -482,53 +468,16 @@ Describe what you want to change, add, or fix. I'll ask follow-ups for anything 
 ### Phase 3: Question Batch Generation
 
 <step number="3" required="true">
-**MUST generate exactly 4 questions using AskUserQuestion based on identified gaps.**
+**Must generate exactly 4 questions using AskUserQuestion based on identified gaps (4 questions balance thoroughness with user fatigue).**
 
 **Rules:**
 - If 4+ gaps exist: ask top 4 by tier priority
-- If fewer gaps exist: pad with "nice to have" tier 3 questions
+- If 3 gaps exist: ask 3 questions (not 4) and proceed to decision gate
+- If <3 gaps exist: pad with "nice to have" tier 3 questions to reach 4
 - Provide meaningful options (not just open text prompts)
 - Always include "Other" option for custom input
 
-**Example question batch (via AskUserQuestion):**
-
-```
-Question 1:
-  question: "Which aspect would you like to improve?"
-  header: "Aspect"
-  options:
-    - label: "Audio processing (DSP)", description: "Change how it sounds"
-    - label: "Parameters", description: "Add/modify/remove controls"
-    - label: "User interface", description: "Layout or visual changes"
-    - label: "Features/workflow", description: "Presets, MIDI, utilities"
-
-Question 2:
-  question: "What's the current behavior you want to change?"
-  header: "Current state"
-  options:
-    - label: "It's broken", description: "Bug or error"
-    - label: "It's limited", description: "Missing functionality"
-    - label: "It's inefficient", description: "Performance issue"
-    - label: "Other", description: "Different issue"
-
-Question 3:
-  question: "Version impact of this change?"
-  header: "Version bump"
-  options:
-    - label: "Patch (bugfix)", description: "v1.0.0 → v1.0.1"
-    - label: "Minor (new feature)", description: "v1.0.0 → v1.1.0"
-    - label: "Major (breaking change)", description: "v1.0.0 → v2.0.0"
-    - label: "Other", description: "Not sure"
-
-Question 4:
-  question: "How to verify success?"
-  header: "Testing"
-  options:
-    - label: "A/B test audio", description: "Compare before/after sound"
-    - label: "Check parameter behavior", description: "Test controls work"
-    - label: "Visual inspection", description: "UI looks correct"
-    - label: "Other", description: "Different testing approach"
-```
+**See [improvement-mode-examples.md](references/improvement-mode-examples.md) for detailed question batch examples.**
 
 **After receiving answers:**
 1. Accumulate context with previous responses
@@ -536,7 +485,7 @@ Question 4:
 3. Proceed to decision gate
 </step>
 
-### Phase 3.5: Decision Gate
+### Phase 4: Decision Gate
 
 <decision_gate>
 <gate_name>finalize_or_continue</gate_name>
@@ -544,7 +493,7 @@ Question 4:
 <checkpoint_protocol>true</checkpoint_protocol>
 
 <step number="4" required="true">
-**MUST use AskUserQuestion with 3 options after each question batch:**
+**Must use AskUserQuestion with 3 options after each question batch:**
 
 ```
 Question:
@@ -556,16 +505,16 @@ Question:
     - label: "Let me add more context first", description: "Provide additional details"
 ```
 
-**MUST wait for user response. NEVER auto-proceed.**
+**Must wait for user response. **Never** auto-proceed.**
 
 **Route based on answer:**
-- Option 1 → Proceed to Phase 4 (document creation)
+- Option 1 → Proceed to Phase 5 (document creation)
 - Option 2 → Return to Phase 2 (re-analyze gaps, generate next 4 questions)
 - Option 3 → Collect free-form text, merge with context, return to Phase 2
 </step>
 </decision_gate>
 
-### Phase 4: Document Creation
+### Phase 5: Document Creation
 
 <step number="5" required="true">
 
@@ -612,12 +561,12 @@ Create: `plugins/[PluginName]/.ideas/improvements/[feature-name].md`
 ```
 </step>
 
-### Phase 5: Session Handoff
+### Phase 6: Session Handoff
 
 <state_requirement>
 <requirement>must_create_continue_file</requirement>
 <step number="6" required="true">
-**MUST create handoff file for resuming later:**
+**Must create handoff file for resuming later:**
 
 **File:** `plugins/[PluginName]/.continue-here.md`
 
@@ -661,7 +610,7 @@ Improvement proposal finalized for [PluginName]: [ImprovementName]
 </step>
 </state_requirement>
 
-### Phase 6: Decision Menu
+### Phase 7: Decision Menu
 
 <decision_gate>
 <gate_name>next_action</gate_name>
@@ -669,7 +618,7 @@ Improvement proposal finalized for [PluginName]: [ImprovementName]
 <checkpoint_protocol>true</checkpoint_protocol>
 
 <step number="7" required="true">
-**MUST present next steps:**
+**Must present next steps:**
 
 ```
 ✓ Improvement brief complete: [ImprovementName]
@@ -689,13 +638,12 @@ Choose (1-5): _
 
 <delegation_rule skill="plugin-improve" trigger="option_1">
 - Condition: User chooses option 1
-- Action: MUST invoke plugin-improve skill via Skill tool
+- Action: Must invoke plugin-improve skill via Skill tool
 </delegation_rule>
 
 <delegation_rule skill="deep-research" trigger="option_2">
 - Condition: User chooses option 2
-- Action: MUST invoke deep-research skill via Skill tool
-- Note: deep-research skill is fully implemented (Phase 7 complete)
+- Action: Must invoke deep-research skill via Skill tool
 </delegation_rule>
 
 - Option 3 → Read relevant source files, then re-present menu
@@ -724,122 +672,7 @@ If 2+ vague indicators AND 0 specific indicators:
 
 ## Grounded Feasibility
 
-**When user proposes ambitious ideas:**
-
-Don't shut down creativity, but flag for research:
-
-```
-That's an interesting direction! [Specific technical consideration] might be complex—we can research approaches in Stage 0 (Research phase).
-
-Continue exploring, or finalize brief with a research note?
-```
-
-Examples:
-- Physical modeling → "Physical modeling can be CPU-intensive"
-- Machine learning → "ML in real-time audio requires careful optimization"
-- Complex visualizations → "3D graphics in plugins have rendering considerations"
-
-**Gently note challenges without saying "no."**
-
-## Examples: Question Generation Based on Input Detail
-
-### Example 1: Detailed Input (New Plugin)
-
-```
-User: "I want a tape delay with wow and flutter modulation. Should have three knobs and a vintage aesthetic."
-
-Extracted:
-- Type: Effect ✓
-- Core concept: Tape delay with modulation ✓
-- Parameters: wow, flutter (2 mentioned, 3 total) ✓
-- UI: vintage, three knobs ✓ (capture but don't expand)
-
-Gaps identified (4 needed):
-- What should the third knob control? (Tier 2)
-- What ranges for wow/flutter? (Tier 2)
-- Specific tape reference? (Tier 3)
-- Primary use case? (Tier 3)
-
-Question Batch 1 (via AskUserQuestion):
-1. "What should the third knob control?" → [Mix, Feedback, Tone, Other]
-2. "What ranges for wow and flutter?" → [Subtle 0-5%, Moderate 0-15%, Extreme 0-50%, Other]
-3. "Any specific tape reference?" → [Echoplex 1950s-60s, Space Echo 1970s-80s, Modern, Other]
-4. "Primary use case?" → [Mixing depth, Creative effects, Both, Other]
-
-[Then decision gate with 3 options]
-```
-
-### Example 2: Vague Input (New Plugin)
-
-```
-User: "A distortion plugin"
-
-Extracted:
-- Type: Effect ✓
-- Core concept: Distortion (very generic)
-
-Gaps identified (4 needed):
-- What distortion character? (Tier 1)
-- What parameters? (Tier 2)
-- Primary use case? (Tier 3)
-- Any inspiration? (Tier 3)
-
-Question Batch 1 (via AskUserQuestion):
-1. "What distortion character?" → [Tube/tape warmth, Hard clipping, Bit crushing, Other]
-2. "What parameters?" → [Drive/tone/mix (3-knob), Drive/tone/mix/bias (4-knob), Extensive multiband, Other]
-3. "Primary use case?" → [Mixing saturation, Creative/aggressive, Both, Other]
-4. "Any inspiration?" → [Guitar pedals, Console/tape, Modern digital, Other]
-
-[Then decision gate]
-
-If user chooses "Ask me 4 more questions":
-- User answered: "Tube warmth", "Drive/tone/mix (3-knob)", "Both", "Console/tape"
-
-Updated context:
-- Type: Effect ✓
-- Core concept: Tube/tape warmth distortion ✓
-- Parameters: drive, tone, mix ✓
-- Use case: versatile ✓
-- Inspiration: console/tape ✓
-
-New gaps for Batch 2:
-- Drive range? (Tier 2)
-- Tone frequency range? (Tier 2)
-- Specific console reference? (Tier 3)
-- Harmonic character? (Tier 3)
-
-Question Batch 2:
-1. "Drive control range?" → [Subtle 0-6dB, Moderate 0-12dB, Extreme 0-24dB, Other]
-2. "Tone control?" → [High-pass filter, Low-pass filter, Tilt EQ, Other]
-3. "Specific console reference?" → [Neve 1073, SSL 4000, API 550, Other]
-4. "Harmonic character?" → [Even harmonics (warm), Odd harmonics (aggressive), Balanced, Other]
-
-[Then decision gate again]
-```
-
-## Adaptive Questioning Strategy
-
-**Extract first, then fill gaps:**
-
-1. User provides initial description
-2. Parse response for covered topics
-3. Generate questions only for missing topics
-4. Present 4 questions via AskUserQuestion
-5. After each batch, re-evaluate what's still missing
-6. Present decision gate
-7. Repeat until user finalizes
-
-**Don't ask redundant questions.**
-
-If user says "I want a tape delay with wow and flutter, three knobs, vintage look," don't ask:
-- ❌ "What type of plugin?" (it's a delay = effect)
-- ❌ "What parameters?" (wow, flutter mentioned)
-- ❌ "Visual style?" (vintage mentioned)
-
-DO ask:
-- ✓ "What should the third knob control?" (only two mentioned)
-- ✓ "What range for wow/flutter parameters?"
-- ✓ "Any specific tape references for the sound?"
+When user proposes ambitious ideas (physical modeling, ML, 3D graphics), flag technical complexity without shutting down creativity: "That's interesting! [Challenge] might be complex—we can research approaches in Stage 0. Continue exploring?"
 
 ## Continuous Iteration Support
 
@@ -857,20 +690,6 @@ User: "Tell me what you think about the DSP"
 ```
 
 **Support free-form exploration until user says "finalize."**
-
-## Git Integration
-
-After creating documents:
-
-```bash
-git add plugins/[PluginName]/.ideas/
-git add PLUGINS.md
-# NEVER commit - user handles commits
-```
-
-**NEVER commit** - The user handles commits according to the checkpoint protocol.
-
-This skill only stages files. Commits are managed by the user or workflow orchestrator.
 
 ## Error Handling
 
@@ -905,26 +724,3 @@ Options:
 
 Choose (1-3): _
 ```
-
-## Integration Points
-
-**Invoked by:**
-- `/dream` command (new plugin or improvement)
-- `/dream [PluginName]` command
-- Natural language: "I want to make...", "Explore improvements to..."
-
-**Invokes:**
-- `ui-mockup` skill (option after creative brief)
-- `plugin-workflow` skill (option after creative brief)
-- `plugin-improve` skill (option after improvement brief)
-- `deep-research` skill (option for research) - Phase 7
-
-## Success Criteria
-
-Skill is successful when:
-- Creative brief captures complete vision
-- No redundant questions asked
-- User feels heard and understood
-- Document is actionable for implementation
-- Handoff file enables resume
-- Next steps are clear and discoverable

@@ -13,7 +13,7 @@ When deep-research completes investigation and user chooses "Apply solution", de
 **Phase 0.45: Research Detection** scans conversation history for:
 
 1. **Skill attribution:** Messages from deep-research skill
-2. **Research artifacts:** Level 1/2/3 reports
+2. **Research artifacts:** Tier 1/2/3 reports
 3. **Problem analysis:** Root cause + recommended solution
 
 ## Workflow
@@ -23,7 +23,7 @@ User: /research [problem]
   ↓
 deep-research skill invoked
   ↓
-Investigates (Level 1/2/3)
+Investigates (Tier 1/2/3)
   ↓
 Presents findings with decision menu
   ↓
@@ -63,7 +63,7 @@ When handoff detected, extract:
 **Scan recent messages for:**
 
 - Messages from deep-research skill
-- Research reports (Level 1/2/3)
+- Research reports (Tier 1/2/3)
 - Problem analysis (root cause + solution)
 
 **If deep-research findings found:**

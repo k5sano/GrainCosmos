@@ -1,59 +1,12 @@
-# Design Drift Detection
+# Design Drift Detection - Detailed Examples
 
-## What is Design Drift?
+This reference contains detailed scenario examples for each drift category. The categorization thresholds are defined in SKILL.md Step 4.
 
-When the finalized mockup diverges from the original creative brief vision.
-
-**Common drift patterns:**
-- Parameter count mismatch (brief says 8, mockup has 12)
-- Visual style mismatch (brief says "vintage warmth", mockup is "modern minimal")
-- Missing features from brief (brief mentions "preset browser", mockup lacks it)
-- Scope creep (mockup adds features not in brief)
-
-## Detection Strategy
-
-### 1. Quantitative Checks (Fast)
-
-**Parameter count:**
-- Extract from parameter-spec.md (if exists) or count in mockup YAML
-- Compare to brief's "parameters" section
-- Flag if mismatch > 20%
-
-**Control count:**
-- Count UI elements in mockup YAML (sliders, buttons, dropdowns)
-- Compare to brief's UI vision
-- Flag if significant difference
-
-**Mentioned features:**
-- Grep brief for feature keywords (preset, bypass, meter, etc.)
-- Check mockup includes them
-- Flag missing features
-
-### 2. Semantic Validation (LLM)
-
-Use Sonnet + extended thinking to compare:
-- **Creative vision** (brief's "Concept" and "Use Cases")
-- **Actual design** (mockup YAML + rendered HTML description)
-
-Questions to answer:
-- Does mockup visual style match brief's aesthetic intent?
-- Are all brief-mentioned features present in mockup?
-- Are mockup additions justified (reasonable evolution) or scope creep?
-- Does mockup support the use cases described in brief?
-
-## Drift Categories
+## Example Scenarios
 
 ### No Drift ✅
 
-**Indicators:**
-- Parameter counts match (±1)
-- All brief features present
-- Visual style aligned
-- Mockup delivers on brief promise
-
-**Action:** Approve, proceed with implementation
-
-**Output:**
+**Example scenario:**
 ```
 ✓ Design-brief alignment verified
 

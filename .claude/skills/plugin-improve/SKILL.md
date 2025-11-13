@@ -1,6 +1,6 @@
 ---
 name: plugin-improve
-description: Fix bugs, add features to completed plugins. Includes versioning, backups, regression testing, changelog automation. Trigger terms - improve, fix, add feature, modify plugin, version bump, rollback
+description: Fix bugs, add features to completed plugins. Includes versioning, backups, regression testing, changelog automation. Auto-detects deep-research handoffs to preserve investigation context. Trigger terms - improve, fix, add feature, modify plugin, version bump, rollback
 allowed-tools:
   - Read
   - Write
@@ -26,6 +26,72 @@ preconditions:
 </handoff_protocol>
 
 Detection mechanism is implemented in Phase 0.45 below. See `references/handoff-protocols.md` for additional workflow documentation.
+
+## Workflow Overview
+
+```
+Phase 0: Specificity Detection (assess request clarity)
+  ↓
+[Specific?] ─NO→ Present menu (brainstorm OR investigate)
+  ↓ YES
+Phase 0.3: Clarification Questions (4 targeted questions)
+  ↓
+Phase 0.4: Decision Gate (confirm understanding)
+  ↓
+Phase 0.45: Research Detection (MANDATORY - scan conversation history)
+  ↓
+[Research found?] ─YES→ Skip to Phase 0.9
+  ↓ NO
+Phase 0.5: Investigation (Tier 1/2/3 auto-detected)
+  ↓
+Phase 0.9: Backup Verification (CRITICAL GATE - must pass to proceed)
+  ↓
+Phase 1: Pre-Implementation Checks (version, state, commits)
+  ↓
+Phase 2: Verify Rollback Path (confirm backup ready)
+  ↓
+Phase 3: Implementation (make changes)
+  ↓
+Phase 4: CHANGELOG Update (document changes)
+  ↓
+Phase 5: Build and Test (delegate to build-automation)
+  ↓
+Phase 5.5: Regression Testing (conditional: if plugin-testing + baseline exist)
+  ↓
+Phase 6: Git Workflow (stage changes, prepare commit)
+  ↓
+Phase 7: Installation (optional, delegate to plugin-lifecycle)
+  ↓
+Phase 8: Completion (decision menu)
+```
+
+**Key:**
+- MANDATORY: Always executes (Phase 0.45)
+- CRITICAL GATE: Blocks workflow if fails (Phase 0.9)
+- CONDITIONAL: Only if conditions met (Phase 5.5, Phase 7)
+
+## Progress Checklist
+
+Copy this checklist and check off phases as you complete them:
+
+```
+Improvement Progress:
+- [ ] Phase 0: Assessed request specificity
+- [ ] Phase 0.3: Asked clarification questions (if needed)
+- [ ] Phase 0.4: Confirmed understanding with user
+- [ ] Phase 0.45: ✓ MANDATORY - Scanned conversation history for research
+- [ ] Phase 0.5: Investigated root cause (if no handoff)
+- [ ] Phase 0.9: ✓ CRITICAL - Backup verified (blocks if fails)
+- [ ] Phase 1: Loaded current state, determined version bump
+- [ ] Phase 2: Confirmed rollback path ready
+- [ ] Phase 3: Implemented changes
+- [ ] Phase 4: Updated CHANGELOG
+- [ ] Phase 5: Built and tested (delegated to build-automation)
+- [ ] Phase 5.5: Ran regression tests (if available)
+- [ ] Phase 6: Staged git changes
+- [ ] Phase 7: Installed plugin (if requested)
+- [ ] Phase 8: Presented completion menu
+```
 
 <gate_preconditions enforcement="strict">
 ## Precondition Checking
@@ -99,57 +165,7 @@ Choose (1-3): _
 
 ## Phase 0.3: Clarification Questions (If Specific)
 
-**If request is specific enough, ask targeted questions using inline menus:**
-
-**Question 1 - What to change:**
-```
-What needs to change?
-
-1. Fix a bug - Something is broken or behaving incorrectly
-2. Add a feature - New capability or enhancement
-3. Improve existing behavior - Refine how something works
-4. Other
-
-Choose (1-4): _
-```
-
-**Question 2 - Scope:**
-```
-How extensive is this change?
-
-1. Single function/method - Localized change in one place
-2. Multiple related components - Changes across a few files
-3. System-wide change - Affects architecture or many components
-4. Other
-
-Choose (1-4): _
-```
-
-**Question 3 - Priority:**
-```
-Version bump priority?
-
-1. PATCH (bug fix) - Backward compatible fix, increment 0.0.X
-2. MINOR (feature) - New feature, backward compatible, increment 0.X.0
-3. MAJOR (breaking) - Breaking change, incompatible API, increment X.0.0
-4. Other
-
-Choose (1-4): _
-```
-
-**Question 4 - Testing:**
-```
-Should I run regression tests?
-
-1. Yes, full regression suite - Compare new behavior vs baseline backup
-2. Yes, but manual review if failures - Show me what changed and let me decide
-3. No, skip regression tests - Just build and verify compilation
-4. Other
-
-Choose (1-4): _
-```
-
-**Collect all responses before proceeding to Phase 0.4**
+**See**: [references/clarification-protocol.md](references/clarification-protocol.md) for 4 targeted questions (what to change, scope, version bump, testing approach). Collect all responses before proceeding to Phase 0.4.
 
 ## Phase 0.4: Decision Gate
 
@@ -178,288 +194,50 @@ Choose (1-4): _
 - Option 3 → Stop workflow, wait for new instruction
 - Option 4 → Collect free-form text, reassess
 
-<research_detection id="phase-0.45" enforcement_level="MANDATORY">
 ## Phase 0.45: Research Detection
 
-**Purpose:** Detect if deep-research already investigated this issue and extract findings to avoid duplicate work.
+**MANDATORY**: Scan conversation history for deep-research findings to avoid duplicate investigation.
 
-**Why critical:** Deep-research Tier 3 uses Opus with extended thinking (expensive, minutes per query). If findings already exist in conversation history, reusing them saves time and cost.
+**See**: [references/research-detection.md](references/research-detection.md) for complete detection algorithm, extraction logic, and decision trees.
 
-**Trigger:** After Phase 0.3 or Phase 0.4 completes, BEFORE Phase 0.5 investigation
-
-**Detection Algorithm:**
-
-<scan_conversation_history>
-Look for these markers in conversation history (starting from most recent):
-
-1. **deep-research skill invocation:**
-   - Search for: "deep-research" in previous messages
-   - Look for tier/level indicators: "Tier 1", "Tier 2", "Tier 3", "Level 1", "Level 2", "Level 3"
-   - Check for completion markers: "Research complete", "Investigation findings", "Investigation Summary"
-
-2. **Research output sections:**
-   - "Root Cause Analysis"
-   - "Root Cause:"
-   - "Solutions Identified"
-   - "Recommended Solution"
-   - "Recommendations"
-   - "Investigation Summary"
-   - "Implementation Steps"
-   - "Implementation Roadmap"
-
-3. **Handoff signals:**
-   - "Invoking plugin-improve with findings"
-   - "Invoking plugin-improve skill"
-   - "Handing off to plugin-improve skill"
-   - "[deep-research → plugin-improve] handoff"
-   - "Ready to implement?"
-
-4. **Context clues:**
-   - User mentioned "after researching"
-   - User said "based on the investigation"
-   - User references prior troubleshooting
-   - User said "from the research findings"
-</scan_conversation_history>
-
-**Extraction Logic (if markers found):**
-
-When research markers detected in conversation history, extract:
-
-- **Research Tier/Level:** Which investigation depth was used (1/2/3)
-- **Problem Statement:** What issue was being investigated
-- **Root Cause:** Technical explanation of underlying issue
-- **Recommended Solution:** Primary approach suggested by research
-- **Alternative Solutions:** Other valid approaches with trade-offs
-- **Implementation Steps:** Ordered tasks to apply the solution
-- **Affected Files:** Which source files need modification
-- **Testing Notes:** How to verify the fix works
-
-**Decision Logic:**
-
-<if_research_detected>
-When research findings detected in conversation history:
-
-1. **Display findings summary:**
-   ```
-   ✓ Research handoff detected from deep-research skill
-
-   Investigation: Tier/Level ${tier} (${tierDescription})
-   Problem: ${problemStatement}
-   Root Cause: ${rootCause}
-   Recommended Solution: ${recommendedSolution}
-
-   Using existing research findings (skipping Phase 0.5 investigation).
-   ```
-
-2. **Skip Phase 0.5:**
-   - Do NOT run investigation logic
-   - Do NOT invoke deep-research again
-   - Proceed directly to Phase 0.9 (Backup Verification) with findings
-
-3. **Set context for implementation:**
-   - RESEARCH_SOURCE = "deep-research handoff"
-   - ROOT_CAUSE = extracted root cause
-   - PROPOSED_SOLUTION = extracted recommended solution
-   - IMPLEMENTATION_STEPS = extracted steps
-   - Use these in improvement planning and CHANGELOG
-
-4. **Present implementation approval:**
-   ```
-   Ready to implement this solution?
-
-   1. Yes, proceed with recommended solution
-   2. No, use alternative approach - Show me alternatives
-   3. No, investigate further - Run fresh investigation (Phase 0.5)
-   4. Other
-
-   Choose (1-4): _
-   ```
-
-   **Handle responses:**
-   - Option 1 → Proceed to Phase 0.9 (Backup Verification)
-   - Option 2 → Show alternative solutions from research, ask which to use
-   - Option 3 → Proceed to Phase 0.5 (Investigation) despite research existing
-   - Option 4 → Collect free-form text, reassess
-</if_research_detected>
-
-<if_no_research_detected>
-When NO research findings detected in conversation history:
-
-1. **Log detection completion:**
-   ```
-   No research handoff detected in conversation history.
-   Proceeding to Phase 0.5 (Investigation).
-   ```
-
-2. **Continue to Phase 0.5:**
-   - Run normal investigation logic (auto-tiered)
-   - May invoke deep-research if Tier 3 detected (user informed)
-
-3. **Detection was performed:**
-   - Important: Even if nothing found, detection ran (MANDATORY)
-   - This prevents false negatives from lazy evaluation
-   - Phase 0.45 always executes, never skipped
-</if_no_research_detected>
-
-**State Tracking:**
-
-Document whether research was detected for audit trail:
-
-```bash
-# Create/append to improvement context file
-echo "research_detection_performed: true" >> .improve-context.yaml
-echo "research_handoff_detected: ${FINDINGS_DETECTED}" >> .improve-context.yaml
-echo "research_tier: ${TIER:-none}" >> .improve-context.yaml
-echo "detection_timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .improve-context.yaml
-```
-
-**Anti-pattern:**
-
-<anti_pattern severity="CRITICAL">
-❌ NEVER skip Phase 0.45 research detection
-❌ NEVER assume no research exists without scanning conversation history
-❌ NEVER re-run deep-research if findings already in conversation
-❌ NEVER ignore handoff signals from deep-research skill
-✓ ALWAYS scan conversation history in Phase 0.45
-✓ ALWAYS extract findings if markers detected
-✓ ALWAYS skip Phase 0.5 if research already complete (unless user overrides)
-✓ ALWAYS document detection results in .improve-context.yaml
-</anti_pattern>
-
-**Integration with existing phase flow:**
-
-```
-Phase 0 (Specificity) → Phase 0.3 (Clarification) → Phase 0.4 (Decision Gate)
-                                                            ↓
-                                            Phase 0.45 (Research Detection) ← YOU ARE HERE
-                                                            ↓
-                                      [Research detected?] decision point
-                                            ↙                    ↘
-                        YES: Skip to Phase 0.9              NO: Continue to Phase 0.5
-                        (Backup Verification)                (Investigation)
-```
-
-**Why this matters:**
-
-- Avoids duplicate investigation (user already ran /research or deep-research auto-invoked)
-- Preserves expensive research context (Opus + extended thinking costs real time and money)
-- Maintains separation of concerns: research finds solutions, improve implements them
-- Prevents "re-investigate what we just investigated" anti-pattern
-- Clear handoff: research outputs findings → improve extracts and uses them
-
-</research_detection>
+**Decision**: If research detected → Skip to Phase 0.9 | If not detected → Continue to Phase 0.5
 
 ## Phase 0.5: Investigation (Auto-Tiered)
 
 **Purpose:** Find root causes, prevent band-aid fixes
 
-**Automatic Tier Detection:**
+### Automatic Tier Detection
 
-Analyze the request and automatically select investigation tier based on complexity indicators. Never ask the user which tier to use.
+Analyze request and select tier automatically. Never ask user which tier.
 
-**Detection algorithm:**
+**Detection algorithm** (check in order, first match wins):
 
-```
-Analysis:
-1. Check troubleshooting/ for known pattern → Tier 1
-2. Keywords: "cosmetic", "typo", "rename", "color", "text" → Tier 1
-3. Keywords: "crash", "performance", "architecture", "all plugins" → Tier 3
-4. Scope: Single file + clear symptom → Tier 2
-5. Scope: Multiple components OR unclear cause → Tier 3
-6. Default: Start Tier 1, escalate if needed
-```
+| Priority | Condition | Tier |
+|----------|-----------|------|
+| 1 | Known pattern in troubleshooting/ | Tier 1 (5-10 min) |
+| 2 | Keywords: "crash", "performance", "architecture", "all plugins" | Tier 3 (30-60 min, delegate) |
+| 3 | Scope: Multiple components OR unclear cause | Tier 3 (30-60 min, delegate) |
+| 4 | Scope: Single file + clear symptom | Tier 2 (15-30 min) |
+| 5 | Keywords: "cosmetic", "typo", "rename", "color", "text" | Tier 1 (5-10 min) |
+| 6 | Default (if no matches) | Tier 1, escalate if needed |
 
-Log selected tier for transparency: "Analyzing issue (quick investigation)..." or "Analyzing issue (deep investigation)..."
+Log selected tier: "Analyzing issue (quick investigation)..." or "Analyzing issue (deep investigation)..."
 
-**Tier 1 (5-10 min):** File read + pattern match
-- Cosmetic changes, simple fixes, obvious issues
-- Known patterns from troubleshooting/
-- **Indicators:** Simple wording, single-file scope, UI-only changes
+### Tier 3: Deep Research (Delegate)
 
-**Tier 2 (15-30 min):** Logic trace + integration check
-- Logic errors, parameter issues, integration bugs
-- Single component, requires code analysis
-- **Indicators:** Specific component mentioned, functional bug, parameter issue
-
-**Tier 3 (30-60 min):** Invoke deep-research skill (uses Opus)
-- Complex bugs, performance issues, architectural problems
-- Multi-component, requires deep investigation
-- **Indicators:** "crash", "all plugins", performance, architecture, unclear cause
-
-**Tier 1: Basic Code Inspection**
-
-Read relevant source files:
-
-- PluginProcessor.cpp/h
-- PluginEditor.cpp/h
-- Relevant JUCE modules
-
-Check for:
-
-- Obvious typos or errors
-- Known pattern matches
-- Simple logic issues
-
-**Tier 2: Root Cause Analysis**
-
-Deeper investigation:
-
-- Trace logic flow from symptom to cause
-- Check integration points between components
-- Review parameter definitions and usage
-- Examine state management
-- Check threading issues (processBlock vs GUI)
-
-**Tier 3: Deep Research**
-
-Invoke `deep-research` skill for complex issues:
+For complex issues (Tier 3 detected), invoke deep-research skill:
 
 ```
 Complex issue detected. Invoking deep-research skill...
 ```
 
-Use Skill tool to invoke deep-research:
-- Provide problem context, plugin name, stage
-- deep-research performs graduated investigation (Levels 1-3)
-- Returns structured findings with recommendations
-- Continue with Phase 0.5 "Present findings" using research output
+Use Skill tool to invoke deep-research with problem context. It performs graduated investigation and returns structured findings.
 
-**Present findings:**
+**See**: [references/investigation-tiers.md](references/investigation-tiers.md) for complete protocols for each tier.
 
-```markdown
-## Investigation Findings
+### Present Findings
 
-### Problem Analysis
-
-[What's actually wrong and why it's happening]
-
-### Root Cause
-
-[Technical explanation of the underlying issue]
-
-### Affected Files
-
-- plugins/[Name]/Source/[File]:[Line]
-- plugins/[Name]/Source/[File]:[Line]
-
-### Recommended Approach
-
-[How to fix it properly - not a workaround]
-
-### Alternative Approaches
-
-[Other valid options with trade-offs explained]
-
-### Backward Compatibility
-
-[Will this break existing presets/sessions?]
-
-Proceed with recommended approach? (y/n): \_
-```
-
-**Wait for approval before implementing.**
-
-If user says no, ask which alternative or if they want different approach.
+After investigation (any tier), present findings and wait for approval before implementing.
 
 <critical_sequence phase="backup-verification" enforcement="strict">
 ## Phase 0.9: Backup Verification
@@ -494,6 +272,12 @@ rsync -a --exclude='build/' --exclude='build.log' \
 ```bash
 # Use verify-backup.sh script
 ./scripts/verify-backup.sh "${PLUGIN_NAME}" "${CURRENT_VERSION}"
+
+if [ $? -ne 0 ]; then
+  echo "❌ Backup verification failed. Cannot proceed safely."
+  echo "Fix backup issues before continuing."
+  exit 1
+fi
 ```
 
 **Present verification results:**
@@ -563,6 +347,23 @@ Are you sure? This should be rare. (y/n): _
 
 Calculate new version based on selection.
 
+### Breaking Change Detection
+
+Check for breaking changes BEFORE confirming version bump:
+
+**Breaking if:**
+- ❌ Parameter ID renamed (automation breaks)
+- ❌ Parameter range changed (saved values invalid)
+- ❌ Parameter removed (automation breaks)
+- ❌ Parameter type changed (e.g., float → choice)
+- ❌ State format changed (old presets won't load)
+- ❌ Feature removed (users lose functionality)
+- ❌ Public API signature changed
+
+**If breaking changes detected:** Force MAJOR version bump, warn user, require confirmation.
+
+**See**: [references/breaking-changes.md](references/breaking-changes.md) for detailed detection criteria and edge cases.
+
 </phase>
 
 <critical_sequence phase="backup-creation" enforcement="strict">
@@ -601,22 +402,47 @@ Ready to implement changes for v[NewVersion]
 
 </phase>
 
-## Phase 4: Enhanced CHANGELOG Update
+## Phase 4: CHANGELOG Update
 
-**Update CHANGELOG.md with enhanced format:**
+**Add version entry at top of CHANGELOG.md:**
 
-See `references/changelog-format.md` for complete template structure and section usage guide.
+### Template Structure
 
-**Quick reference:**
+```markdown
+## [VERSION] - YYYY-MM-DD
+
+### Added (for new features)
+- **Feature name:** Brief description
+  - Technical detail
+  - Impact: What this enables
+
+### Changed (for changes to existing functionality)
+- **Component name:** What changed
+  - Before: Previous behavior
+  - After: New behavior
+
+### Fixed (for bug fixes)
+- **Issue:** What was broken
+  - Root cause: Technical explanation
+  - Solution: How it was fixed
+
+### Breaking Changes (MAJOR versions only)
+- **API change:** What's incompatible
+  - Migration: How to update existing uses
+```
+
+### Section Usage by Version Type
+
 - **PATCH (0.0.X):** Use "Fixed" section primarily
-- **MINOR (0.X.0):** Use "Added"/"Changed" sections
-- **MAJOR (X.0.0):** Include "Breaking Changes" and "Migration Notes" sections
+- **MINOR (0.X.0):** Use "Added" and/or "Changed" sections
+- **MAJOR (X.0.0):** Include "Breaking Changes" and "Migration Notes"
 
 **Always include:**
 - Date in ISO format (YYYY-MM-DD)
-- Technical details (root cause, solution, affected components)
-- User impact (what changes in behavior)
-- Testing notes (regression test results if available)
+- Root cause for fixes (from Phase 0.5 investigation)
+- Testing notes (regression test results if Phase 5.5 ran)
+
+**See**: [references/changelog-format.md](references/changelog-format.md) for detailed examples and best practices.
 
 <delegation_rule target="build-automation" required="true">
 ## Phase 5: Build and Test
@@ -680,50 +506,60 @@ If tests fail, present investigation options.
 <validation_gate gate="regression-tests" required="conditional">
 ## Phase 5.5: Regression Testing
 
-**GATE CONDITION:** If plugin-testing skill exists AND baseline backup available
+**GATE CONDITION:** Conditional - only runs if both conditions met
 **GATE FAILURE:** Present rollback options, require user decision
 
-**Check:** Does `.claude/skills/plugin-testing/SKILL.md` exist?
+### Decision Tree
 
-**If NO:** Skip to Phase 6 (add warning to changelog: "Manual regression testing required")
+```
+Does plugin-testing skill exist?
+├─ NO → Skip regression tests
+│       Warn: "Manual regression testing required (plugin-testing skill not found)"
+│       Add to CHANGELOG: "Manual regression testing required"
+│       Continue to Phase 6
+│
+└─ YES → Does baseline backup exist (backups/[Plugin]/v[baseline]/)?
+    ├─ NO → Skip regression tests
+    │       Warn: "No baseline backup found for v[baseline]"
+    │       Add to CHANGELOG: "Manual regression testing required (no baseline)"
+    │       Continue to Phase 6
+    │
+    └─ YES → Run regression tests
+            1. Build baseline version
+            2. Run tests on baseline
+            3. Run tests on current version
+            4. Compare results
+            5. Present findings with decision menu
+```
 
-**If YES:** Run regression tests
-
-### Regression Test Process
+### Regression Test Process (if both conditions met)
 
 **1. Determine baseline version:**
-
 - If improving v1.0.0 → v1.1.0, baseline is v1.0.0
-- Check if backup exists: `backups/[Plugin]/v[baseline]/`
-- If no backup: Skip regression tests (warn user)
+- Baseline path: `backups/[Plugin]/v[baseline]/`
 
 **2. Build baseline version:**
-
 ```bash
-# Temporarily checkout baseline
 cd backups/[Plugin]/v[baseline]/
 ../../scripts/build-and-install.sh --no-install
 ```
 
 **3. Run tests on baseline:**
-
 - Invoke plugin-testing skill on baseline build
 - Capture results: BASELINE_RESULTS
 
 **4. Run tests on current version:**
-
 - Invoke plugin-testing skill on new build
 - Capture results: CURRENT_RESULTS
 
-**If plugin-testing skill exists and baseline backup available:**
+**5. Compare and present:**
 
-See `references/regression-testing.md` for complete RegressionReport interface and protocol.
+See `references/regression-testing.md` for complete RegressionReport interface and comparison logic.
 
 **Quick summary:**
-1. Invoke plugin-testing skill with baseline and new versions
-2. Collect RegressionReport (build, load, parameter, audio tests)
-3. Analyze failures: critical → rollback, warnings → review, pass → deploy
-4. Present results with decision menu
+- Collect RegressionReport (build, load, parameter, audio tests)
+- Analyze failures: critical → rollback, warnings → review, pass → deploy
+- Present results with decision menu
 
 **If regression tests fail, present rollback options before proceeding.**
 
@@ -753,7 +589,7 @@ git commit -m "improve: [PluginName] v[X.Y.Z] - [description]"
 git tag -a "v[X.Y.Z]" -m "[PluginName] v[X.Y.Z]"
 ```
 
-Note: User handles actual git operations, we stage only.
+Note: Display git commands for user to run manually. Do not execute git commit or git push.
 
 **Confirm git ready:**
 
@@ -823,55 +659,6 @@ Choose (1-5): _
 - Option 5 → Ask what they'd like to do
 
 </checkpoint_protocol>
-
-## Breaking Change Detection
-
-**Check for breaking changes:**
-
-See `references/breaking-changes.md` for complete detection criteria.
-
-**Quick check:**
-- Parameter IDs changed? → Breaking
-- Parameter ranges changed? → Breaking
-- State format changed? → Breaking
-- Features removed? → Breaking
-- API signatures changed? → Breaking
-
-If breaking changes detected, warn user and require MAJOR version bump.
-
-## Rollback Support
-
-**If anything goes wrong:**
-
-Provide rollback instructions:
-
-```
-To restore backup:
-
-1. Remove modified version:
-   rm -rf plugins/[PluginName]
-
-2. Restore backup:
-   cp -r backups/[PluginName]-v[X.Y.Z]-[timestamp] plugins/[PluginName]
-
-3. Rebuild:
-   cmake --build build
-
-Backup location: backups/[PluginName]-v[X.Y.Z]-[timestamp]
-```
-
-## Version Bump Logic
-
-**Determine version bump using decision tree:**
-
-See `references/versioning.md` for complete versioning logic.
-
-**Quick reference:**
-- Breaking change detected? → MAJOR (X.0.0)
-- New feature added? → MINOR (0.X.0)
-- Bug fix only? → PATCH (0.0.X)
-
-If unsure, prefer MINOR over MAJOR (conservative approach).
 
 ## Version History
 

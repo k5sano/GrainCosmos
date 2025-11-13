@@ -6,8 +6,8 @@ allowed-tools:
   - Read
   - Write
 preconditions:
-  - Plugin status must be 📦 Installed
-  - VST3 and AU binaries exist in system folders
+  - Plugin status is 📦 Installed (verified in step 1)
+  - VST3 and AU binaries exist in system folders (verified in step 1)
 ---
 
 # plugin-packaging Skill
@@ -16,15 +16,25 @@ preconditions:
 
 ## Overview
 
-Generates macOS PKG installers with:
-- Branded Welcome/ReadMe/Conclusion screens (TÂCHES branding)
-- Automated installation to user's plugin folders
-- Gatekeeper bypass instructions
-- User-friendly distribution package
+Generates macOS PKG installers with branded UI, automated plugin installation, and Gatekeeper bypass instructions.
 
 ## Workflow
 
 <critical_sequence enforcement="strict" blocking="true">
+
+**Track your progress:**
+
+```
+Plugin Packaging Progress:
+- [ ] 1. Prerequisites verified (plugin installed, binaries exist)
+- [ ] 2. Metadata extracted (version, description, parameters)
+- [ ] 3. Branding files created (Welcome, ReadMe, Conclusion)
+- [ ] 4. Base package built (pkgbuild complete)
+- [ ] 5. Branded installer created (productbuild complete)
+- [ ] 6. Distribution package output (files in plugins/[PluginName]/dist/)
+```
+
+---
 
 ### 1. Verify Prerequisites
 
@@ -33,7 +43,7 @@ Check plugin is ready for packaging:
 - Verify VST3 exists: `~/Library/Audio/Plug-Ins/VST3/[ProductName].vst3`
 - Verify AU exists: `~/Library/Audio/Plug-Ins/Components/[ProductName].component`
 
-**Blocking:** If not installed, guide user to run `/install-plugin [Name]` first.
+**Blocking:** If not installed, guide user to run `/install-plugin [PluginName]` first.
 
 ### 2. Extract Plugin Metadata
 
@@ -43,12 +53,17 @@ Gather information for branding files:
   - Description
   - Parameter list (name, range, defaults)
   - Use cases
-- Read `plugins/[Name]/CMakeLists.txt` for PRODUCT_NAME
+- Extract PRODUCT_NAME from `plugins/[PluginName]/CMakeLists.txt` (use grep + sed, see Section 1.2 in references/pkg-creation.md)
 - Store metadata for template population
+
+**Template variables to extract:**
+- {{PLUGIN_NAME}}, {{VERSION}}, {{DESCRIPTION}}
+- {{PRODUCT_NAME}}, {{PARAM_COUNT}}, {{PARAMETERS}}
+- {{FEATURES}}, {{QUICK_START_PRESETS}}
 
 ### 3. Create Branding Files
 
-Generate three branding text files using templates from `assets/`:
+Generate three branding text files by reading templates from `assets/` and replacing {{VARIABLE}} placeholders with actual plugin metadata (see Section 3 in references/pkg-creation.md for bash commands):
 
 **Welcome.txt:**
 - Plugin name with TÂCHES branding
@@ -70,7 +85,7 @@ Generate three branding text files using templates from `assets/`:
 - Quick start preset suggestions (3-5 settings)
 - Thank you message with TÂCHES signature
 
-See `references/branding-templates.md` for complete template structure.
+Templates are in `assets/` (welcome-template.txt, readme-template.txt, conclusion-template.txt). See Section 3 in references/pkg-creation.md for population commands.
 
 ### 4. Build Base Package
 
@@ -78,15 +93,22 @@ Create foundational PKG with installation logic:
 
 **4a. Create temp directory structure:**
 ```bash
-mkdir -p /tmp/[Name]-installer/payload/[Name]
-mkdir -p /tmp/[Name]-installer/scripts
+mkdir -p /tmp/[PluginName]-installer/payload/[PluginName]
+mkdir -p /tmp/[PluginName]-installer/scripts
 ```
 
 **4b. Copy binaries to payload:**
 ```bash
-cp -R ~/Library/Audio/Plug-Ins/VST3/[ProductName].vst3 /tmp/[Name]-installer/payload/[Name]/
-cp -R ~/Library/Audio/Plug-Ins/Components/[ProductName].component /tmp/[Name]-installer/payload/[Name]/
+cp -R ~/Library/Audio/Plug-Ins/VST3/[ProductName].vst3 /tmp/[PluginName]-installer/payload/[PluginName]/
+cp -R ~/Library/Audio/Plug-Ins/Components/[ProductName].component /tmp/[PluginName]-installer/payload/[PluginName]/
 ```
+
+**Validation:** Verify binaries copied successfully:
+```bash
+ls /tmp/[PluginName]-installer/payload/[PluginName]/
+# Should show: [ProductName].vst3 and [ProductName].component
+```
+ONLY proceed to 4c when both files are present.
 
 **4c. Create postinstall script:**
 - Script gets actual user (not root during install)
@@ -95,7 +117,7 @@ cp -R ~/Library/Audio/Plug-Ins/Components/[ProductName].component /tmp/[Name]-in
 - Sets correct ownership and permissions
 - Cleans up temp files
 
-See `references/pkg-creation.md` Section 4c for complete script.
+See `references/pkg-creation.md` Section 4b for complete script.
 
 **4d. Run pkgbuild:**
 ```bash
@@ -104,8 +126,15 @@ pkgbuild --root payload \
          --identifier com.taches.[pluginname] \
          --version [X.Y.Z] \
          --install-location /tmp \
-         [Name]-Installer.pkg
+         [PluginName]-Installer.pkg
 ```
+
+**Validation:** Verify base PKG created:
+```bash
+ls [PluginName]-Installer.pkg
+# File should exist and be 3-5 MB
+```
+ONLY proceed to step 5 when PKG file exists.
 
 ### 5. Build Branded Installer
 
@@ -124,8 +153,15 @@ See `references/pkg-creation.md` Section 5a for complete XML structure.
 productbuild --distribution Distribution.xml \
              --resources resources \
              --package-path . \
-             "[Name]-by-TACHES.pkg"
+             "[PluginName]-by-TACHES.pkg"
 ```
+
+**Validation:** Verify branded PKG created:
+```bash
+ls [PluginName]-by-TACHES.pkg
+# File should exist and be slightly larger than base PKG
+```
+ONLY proceed to step 6 when branded PKG exists.
 
 Result: Branded PKG with custom installer screens.
 
@@ -135,12 +171,12 @@ Finalize and present to user:
 
 **6a. Create dist directory:**
 ```bash
-mkdir -p plugins/[Name]/dist
+mkdir -p plugins/[PluginName]/dist
 ```
 
 **6b. Copy installer:**
 ```bash
-cp /tmp/[Name]-installer/[Name]-by-TACHES.pkg plugins/[Name]/dist/
+cp /tmp/[PluginName]-installer/[PluginName]-by-TACHES.pkg plugins/[PluginName]/dist/
 ```
 
 **6c. Generate install-readme.txt:**
@@ -149,16 +185,16 @@ cp /tmp/[Name]-installer/[Name]-by-TACHES.pkg plugins/[Name]/dist/
 - Gatekeeper bypass instructions
 - Troubleshooting tips
 
-See `references/distribution-guide.md` for complete README template.
+Template structure: installation steps, Gatekeeper bypass instructions, plugin info, uninstallation, support contact. See Section 6c in references/pkg-creation.md for complete template.
 
 **6d. Display summary:**
 ```
 ✓ [PluginName] packaged successfully
 
-Created: plugins/[Name]/dist/[Name]-by-TACHES.pkg (X.X MB)
+Created: plugins/[PluginName]/dist/[PluginName]-by-TACHES.pkg (X.X MB)
 
 Distribution package includes:
-- [Name]-by-TACHES.pkg (branded installer)
+- [PluginName]-by-TACHES.pkg (branded installer)
 - install-readme.txt (installation guide)
 
 Send both files to your friend.
@@ -179,13 +215,13 @@ Send both files to your friend.
 
 **Reads:**
 - `PLUGINS.md` → Plugin metadata
-- `plugins/[Name]/CMakeLists.txt` → PRODUCT_NAME extraction
+- `plugins/[PluginName]/CMakeLists.txt` → PRODUCT_NAME extraction
 - `~/Library/Audio/Plug-Ins/VST3/[Product].vst3` → Source binary
 - `~/Library/Audio/Plug-Ins/Components/[Product].component` → Source binary
 
 **Creates:**
-- `plugins/[Name]/dist/[Name]-by-TACHES.pkg` → Branded installer
-- `plugins/[Name]/dist/install-readme.txt` → Installation guide
+- `plugins/[PluginName]/dist/[PluginName]-by-TACHES.pkg` → Branded installer
+- `plugins/[PluginName]/dist/install-readme.txt` → Installation guide
 
 **Updates:**
 - None (packaging doesn't modify plugin state)
@@ -201,11 +237,11 @@ After successful packaging, present this menu and WAIT for user response:
 ```
 ✓ [PluginName] packaged successfully
 
-Created: plugins/[Name]/dist/[Name]-by-TACHES.pkg (X.X MB)
+Created: plugins/[PluginName]/dist/[PluginName]-by-TACHES.pkg (X.X MB)
 
 What's next?
 1. Test installer (recommended) → Verify PKG works correctly
-2. Package another plugin → /package [OtherName]
+2. Package another plugin → /package [OtherPlugin]
 3. View installation guide → Show install-readme.txt contents
 4. Share distribution files → Instructions for sending to friend
 5. Other
@@ -214,7 +250,7 @@ Choose (1-5): _
 ```
 
 **Option handlers:**
-1. **Test installer** → Guide user to test on different user account or provide testing checklist
+1. **Test installer** → Provide testing checklist (see Testing Checklist in references/pkg-creation.md Section 6)
 2. **Package another** → Prompt for plugin name, re-invoke skill
 3. **View guide** → Display install-readme.txt with `cat` command
 4. **Share instructions** → Explain what files to send, how to compress if needed
@@ -229,8 +265,8 @@ Choose (1-5): _
 Common error scenarios:
 
 **Plugin not installed:**
-- Error: "Cannot package [Name] - plugin not installed"
-- Solution: Guide to run `/install-plugin [Name]` first
+- Error: "Cannot package [PluginName] - plugin not installed"
+- Solution: Guide to run `/install-plugin [PluginName]` first
 
 **Binaries not found:**
 - Error: "VST3 or AU not found in system folders"
@@ -244,7 +280,7 @@ Common error scenarios:
 - Error: "TÂCHES branding not found in templates"
 - Solution: Verify assets/ directory has template files
 
-See `references/error-handling.md` for complete error catalog.
+Common errors are documented above. See references/pkg-creation.md Section 6 for additional error scenarios.
 
 ---
 
@@ -253,7 +289,7 @@ See `references/error-handling.md` for complete error catalog.
 Packaging succeeds when:
 - ✅ Base PKG created with postinstall script
 - ✅ Branded PKG created with Welcome/ReadMe/Conclusion screens
-- ✅ Installer file copied to `plugins/[Name]/dist/`
+- ✅ Installer file copied to `plugins/[PluginName]/dist/`
 - ✅ Installation guide generated
 - ✅ File sizes reported (PKG should be 3-5 MB typically)
 - ✅ User knows what files to share
@@ -269,23 +305,13 @@ Packaging succeeds when:
 
 **When executing this skill:**
 
-1. Always verify plugin is installed first (check both VST3 and AU exist)
-2. Extract PRODUCT_NAME carefully (may contain spaces, use quotes)
-3. Populate branding templates with actual plugin metadata (not placeholders)
-4. Postinstall script must handle user detection (can't assume /Users/[name])
-5. Clean up temp files after success (`rm -rf /tmp/[Name]-installer`)
-6. Report file size to user (helpful for sharing over email/Dropbox)
-7. Present decision menu and wait (checkpoint protocol)
+1. Extract PRODUCT_NAME carefully (may contain spaces, use quotes)
+2. Populate branding templates with actual plugin metadata (not placeholders)
+3. Postinstall script must handle user detection (can't assume /Users/[name])
+4. Clean up temp files after success (`rm -rf /tmp/[PluginName]-installer`)
+5. Report file size to user (helpful for sharing over email/Dropbox)
 
 **Branding consistency:**
 - Always use "TÂCHES" in title, welcome, conclusion
 - Format: "[PluginName] by TÂCHES"
-- Maintain professional tone (helpful, not sales-y)
 - Include Gatekeeper steps in ReadMe (critical for unsigned plugins)
-
-**Future enhancements:**
-- DMG packaging (drag-and-drop style)
-- ZIP packaging (simplest, no installer)
-- Code signing integration (if developer account added)
-- Windows installer support (NSIS/Inno Setup)
-- Multi-plugin packages (bundle multiple plugins)

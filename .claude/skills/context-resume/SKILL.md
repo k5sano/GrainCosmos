@@ -1,12 +1,12 @@
 ---
 name: context-resume
-description: Load plugin context from handoff files to resume work
+description: Load plugin context from handoff files to resume work. Invoked by /continue command, 'resume [PluginName]', or natural language continuation requests. Locates handoff across 2 locations, parses state, presents summary, and routes to appropriate continuation skill.
 allowed-tools:
   - Read
   - Bash
   - Skill # To invoke next skill
 preconditions:
-  - Handoff file must exist in one of 3 locations
+  - Handoff file must exist in one of 2 locations
 ---
 
 # context-resume Skill
@@ -14,7 +14,7 @@ preconditions:
 **Purpose:** Universal entry point for resuming plugin work from `.continue-here.md` handoff files. Handles workflow, ideation, mockup, and improvement resume scenarios.
 
 **Capabilities:**
-- Locates handoff files (3 possible locations)
+- Locates handoff files (2 possible locations)
 - Parses YAML frontmatter and markdown context
 - Presents state summary with time-ago calculation
 - Routes to appropriate continuation skill (via Skill tool)
@@ -22,7 +22,7 @@ preconditions:
 
 ## Orchestration Protocol
 
-<delegation_rule type="mandatory" enforcement="strict">
+<delegation_rule>
 
 **CRITICAL:** This skill MUST NOT implement workflow stages directly.
 
@@ -31,7 +31,7 @@ When resuming workflow (Stages 0-6), this skill:
 2. Parses context
 3. Presents summary to user
 4. Checks for `orchestration_mode: true` in handoff YAML
-5. If orchestration_mode enabled → Invokes plugin-workflow skill via Skill tool
+5. If orchestration_mode enabled → Invokes plugin-workflow skill via Skill tool (resume context passed via handoff file, not invocation params)
 6. If orchestration_mode disabled → Uses legacy direct routing
 
 **NEVER bypass orchestration_mode.** This enforces the dispatcher pattern:
@@ -41,72 +41,101 @@ When resuming workflow (Stages 0-6), this skill:
 
 See **[references/continuation-routing.md](references/continuation-routing.md)** Step 4a-1 for complete protocol.
 
-</delegation_rule>
+**What is orchestration_mode?**
 
-<handoff_protocol>
+When enabled in handoff YAML, this flag activates the dispatcher pattern: plugin-workflow orchestrates implementation by invoking subagents in fresh contexts. When disabled (legacy mode), context-resume directly routes to implementation skills. Modern workflows always use orchestration_mode for consistent subagent dispatch and clean context isolation.
+
+</delegation_rule>
 
 ## Handoff File Locations
 
 The system uses 2 handoff locations, checked in priority order:
 
-<handoff_location priority="1" type="workflow">
-**Path:** `plugins/[PluginName]/.continue-here.md`
-**Meaning:** Plugin in active development or planning (Stages 0-6, ideation, improvement planning)
-**Creator:** plugin-planning skill, plugin-workflow skill, plugin-ideation skill
-**Contains:** stage, phase, orchestration_mode, next_action, completed work, next steps
-</handoff_location>
+**Priority 1: Main Workflow Handoff**
+`plugins/[PluginName]/.continue-here.md`
 
-<handoff_location priority="2" type="mockup">
-**Path:** `plugins/[PluginName]/.ideas/mockups/.continue-here.md`
-**Meaning:** UI mockup iteration in progress
-**Creator:** ui-mockup skill
-**Contains:** mockup_version, iteration notes, finalization status
-</handoff_location>
+Plugin in active development (Stages 0-6, ideation, improvement planning). Contains stage, phase, orchestration_mode, next_action, completed work, next steps.
 
-**Search order:** Priority 1 → 2. If multiple found, disambiguate (see references/handoff-location.md).
+**Priority 2: Mockup Handoff**
+`plugins/[PluginName]/.ideas/mockups/.continue-here.md`
 
-</handoff_protocol>
+UI mockup iteration in progress. Contains mockup_version, iteration notes, finalization status.
+
+**Search order:** Priority 1 → 2. If multiple found, present disambiguation menu to user (see references/handoff-location.md Step 1c).
 
 ---
 
 ## Resume Workflow
 
-<critical_sequence enforcement="strict" allow_backtrack="false">
+**Progress Tracking:**
 
-<sequence_step number="1" name="locate_handoff" blocking="true">
-Search for handoff files across 2 locations, handle interactive plugin selection if no name provided, and disambiguate when multiple handoffs exist for same plugin.
+Copy this checklist to track your progress:
 
-See **[references/handoff-location.md](references/handoff-location.md)** for complete location logic.
+```
+Context Resume Progress:
+- [ ] Step 1: Locate handoff file (check 2 locations, disambiguate if needed)
+- [ ] Step 2: Parse context (YAML + markdown body)
+- [ ] Step 3: Present summary (wait for user confirmation)
+- [ ] Step 4: Route to continuation skill (load context files first)
+```
 
-MUST complete before Step 2. If no handoff found, see error recovery.
-</sequence_step>
+### Step 1: Locate Handoff File
 
-<sequence_step number="2" name="parse_context" blocking="true" depends_on="1">
+Search for handoff files across 2 locations (see [Handoff File Locations](#handoff-file-locations) above). Handle interactive plugin selection if no name provided, and present disambiguation menu when multiple handoffs exist for same plugin.
+
+**Details:** [references/handoff-location.md](references/handoff-location.md)
+
+**Validation:** MUST complete before Step 2. If no handoff found, proceed to error recovery.
+
+---
+
+### Step 2: Parse Context
+
 Parse YAML frontmatter (plugin, stage, status, last_updated, etc.) and markdown body (current state, completed work, next steps, key decisions).
 
-See **[references/context-parsing.md](references/context-parsing.md)** for parsing logic.
+**Details:** [references/context-parsing.md](references/context-parsing.md)
 
-MUST complete before Step 3.
-</sequence_step>
+**Validation:** MUST complete before Step 3.
 
-<sequence_step number="3" name="present_summary" blocking="true" depends_on="2">
-Calculate "time ago" and build user-facing summary showing where we are in workflow, what's completed, what's next, build/test status, time since last session.
+---
 
-See **[references/context-parsing.md](references/context-parsing.md)** for presentation logic.
+### Step 3: Present Summary
 
-<decision_gate>
-MUST wait for user confirmation. DO NOT auto-proceed.
-Present numbered decision menu following checkpoint protocol.
-</decision_gate>
-</sequence_step>
+Calculate "time ago" and build user-facing summary:
+- Where we are in workflow
+- What's completed
+- What's next
+- Build/test status
+- Time since last session
 
-<sequence_step number="4" name="proceed_continuation" blocking="true" depends_on="3" requires_user_confirmation="true">
-Determine routing based on stage type (workflow, ideation, mockup, improvement), load relevant context files (contracts, source code, git history), and invoke appropriate continuation skill.
+**Details:** [references/context-parsing.md](references/context-parsing.md) (presentation logic)
 
-See **[references/continuation-routing.md](references/continuation-routing.md)** for routing logic.
-</sequence_step>
+**DECISION GATE:** MUST wait for user confirmation. DO NOT auto-proceed. Present numbered decision menu following checkpoint protocol.
 
-</critical_sequence>
+---
+
+**VALIDATION GATE:** Before proceeding to Step 4, verify:
+
+1. Handoff parsed successfully (YAML + markdown body extracted)
+2. User confirmed continuation (received explicit confirmation, not assumed)
+3. Plugin name is known and valid
+4. Stage type is identified (workflow/ideation/mockup/improvement)
+
+If any verification fails:
+- Return to failed step (Step 1 or Step 2)
+- Present error recovery options (see [references/error-recovery.md](references/error-recovery.md))
+
+Only proceed to Step 4 when all verifications pass.
+
+---
+
+### Step 4: Route to Continuation Skill
+
+Determine routing based on stage type (workflow, ideation, mockup, improvement). Load relevant context files (contracts, source code, git history) BEFORE invoking continuation skill.
+
+Routes to plugin-workflow (Stages 0-6), plugin-ideation (ideation/improvements), ui-mockup (mockup iteration), or plugin-improve (improvement implementation) based on stage type and orchestration_mode. See **[references/continuation-routing.md](references/continuation-routing.md)** for complete routing logic.
+
+**Validation:** Requires user confirmation from Step 3.
 
 ---
 
@@ -125,9 +154,9 @@ See **[references/error-recovery.md](references/error-recovery.md)** for all err
 
 ## Integration Points
 
-<integration type="inbound" trigger="command">
+<integration>
 
-**Invoked by:**
+**Inbound (Command triggers):**
 
 1. `/continue` command (no args) → Triggers interactive plugin selection
 2. `/continue [PluginName]` command → Triggers specific plugin resume
@@ -135,25 +164,27 @@ See **[references/error-recovery.md](references/error-recovery.md)** for all err
 
 </integration>
 
-<integration type="outbound" action="delegation">
+<integration>
 
-**Invokes (via Skill tool):**
+**Outbound (Skill delegation):**
 
 1. `plugin-workflow` - For workflow resume at specific stage (Stages 0-6)
 2. `plugin-ideation` - For ideation resume (improvements or refinement)
 3. `ui-mockup` - For mockup iteration resume
 4. `plugin-improve` - For improvement implementation resume
+5. `workflow-reconciliation` - For corrupt handoff recovery scenarios (state mismatch detection)
+6. `system-setup` - If error recovery detects missing dependencies
 
 MUST use Skill tool for invocation, NEVER implement directly.
 
 </integration>
 
-<state_requirement type="read_only" enforcement="strict">
+<state_requirement>
 
 **This skill is READ-ONLY for state files.**
 
 MUST read:
-- `.continue-here.md` files (all 3 locations)
+- `.continue-here.md` files (all 2 locations)
 - PLUGINS.md (status verification)
 - Git log (commit history for inference)
 - Contract files (creative-brief.md, parameter-spec.md, architecture.md, plan.md)
@@ -175,7 +206,7 @@ Continuation skills invoked by this skill will handle all state updates.
 
 Resume is successful when:
 
-1. **Handoff located:** Found correct handoff file(s) from 3 possible locations
+1. **Handoff located:** Found correct handoff file(s) from 2 possible locations
 2. **Context parsed:** YAML and markdown extracted without errors
 3. **State understood:** User sees clear summary of where they left off
 4. **Continuity felt:** User doesn't need to remember details, handoff provides everything
@@ -188,7 +219,7 @@ Resume is successful when:
 
 ## Execution Requirements
 
-<requirements enforcement="strict">
+<requirements>
 
 **MUST do when executing this skill:**
 
@@ -198,19 +229,19 @@ Resume is successful when:
 4. **MUST** show enough context that user remembers where they were
 5. **NEVER** auto-proceed - wait for explicit user choice
 6. **MUST** load contract files BEFORE invoking continuation skill (provides context)
-7. **MUST** use git log as backup if handoff is stale/corrupt
+7. **MUST** use git log as backup IF handoff is missing, stale (>2 weeks old), or corrupt
 8. **MUST** preserve user's mental model - summary should match how they think about plugin
 
 </requirements>
 
 <anti_patterns>
 
-**NEVER do these common pitfalls:**
+**NEVER do these common mistakes:**
 
-- Forgetting to check all 2 locations
-- Auto-proceeding without user confirmation
-- Not loading contract files before continuation
-- Showing raw YAML instead of human summary
-- Missing disambiguation when multiple handoffs exist
+- Checking only Priority 1 location and stopping early (MUST check both locations)
+- Auto-proceeding after summary without waiting for user confirmation
+- Invoking continuation skill before loading contract files
+- Presenting raw YAML/markdown instead of formatted human-readable summary
+- Auto-selecting when multiple handoffs exist (MUST present disambiguation menu)
 
 </anti_patterns>

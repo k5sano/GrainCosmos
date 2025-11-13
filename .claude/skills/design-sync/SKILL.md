@@ -1,14 +1,14 @@
 ---
 name: design-sync
-description: Validate mockup ↔ creative brief consistency, catch design drift
+description: Validates mockup ↔ creative brief consistency and catches design drift before implementation begins
 allowed-tools:
   - Read # Read contracts (brief, parameter-spec, mockup YAML)
   - Edit # Update brief's Evolution section
 preconditions:
   - creative-brief.md exists
   - Mockup has been finalized (parameter-spec.md generated)
-extended-thinking: true
-thinking-budget: 8000 # Moderate creative reasoning
+extended-thinking: true  # Enables mcp__sequential-thinking tool for semantic analysis (Step 3)
+thinking-budget: 8000    # Token budget for extended thinking in semantic validation
 ---
 
 # design-sync Skill
@@ -17,11 +17,18 @@ thinking-budget: 8000 # Moderate creative reasoning
 
 ## Overview
 
-This skill compares the finalized UI mockup against the original creative brief to detect drift—where the implemented design diverges from the original vision. Catches misalignments before Stage 5 (GUI implementation) starts, preventing wasted work.
+This skill compares the finalized mockup against the original creative brief to detect drift—where the implemented design diverges from the original vision. Catches misalignments before Stage 5 (GUI implementation) starts, preventing wasted work.
 
 **Why this matters:** Creative briefs capture intent; mockups capture reality. During iteration these can diverge (parameter mismatches, visual style drift, missing features). Detecting drift early enables course correction before implementation.
 
 **Key innovation:** Dual validation (quantitative + semantic) with categorized drift levels and appropriate decision menus.
+
+**Prerequisites:**
+- system-setup must have run successfully (requires Python 3.8+, jq for JSON/YAML processing)
+- creative-brief.md exists (created via plugin-ideation or manually)
+- mockup finalized (parameter-spec.md generated via ui-mockup)
+
+If dependencies missing, design-sync will error with actionable recovery menu.
 
 ---
 
@@ -46,6 +53,22 @@ This skill compares the finalized UI mockup against the original creative brief 
 <sequence_name>design-sync-validation</sequence_name>
 <enforcement>MUST execute all 7 steps in order. MUST NOT skip any step. MUST NOT auto-proceed past decision gates. MUST NOT continue until user responds to gates.</enforcement>
 
+## Validation Progress Checklist
+
+Track completion as you execute:
+
+```
+- [ ] Step 1: Load contracts (brief, parameter-spec, mockup)
+- [ ] Step 2: Quantitative checks (parameter counts, features)
+- [ ] Step 3: Semantic validation (extended thinking analysis)
+- [ ] Step 4: Categorize drift (none/acceptable/attention/critical)
+- [ ] Step 5: Present findings (appropriate decision menu)
+- [ ] Step 6: Execute user choice
+- [ ] Step 7: Route back to ui-mockup
+```
+
+---
+
 ### Step 1: Load Contracts
 <step_requirement>MUST complete before Step 2. If files missing, BLOCK with error menu.</step_requirement>
 
@@ -53,7 +76,7 @@ Read three files:
 
 - `plugins/[PluginName]/.ideas/creative-brief.md` - Original vision
 - `plugins/[PluginName]/.ideas/parameter-spec.md` - Finalized parameters from mockup
-- `plugins/[PluginName]/.ideas/mockups/vN-ui.yaml` - Finalized mockup spec
+- `plugins/[PluginName]/.ideas/mockups/vN-ui.yaml` - Finalized mockup
 
 **Error handling:** If any missing, BLOCK with clear message:
 
@@ -77,37 +100,67 @@ Actions:
 ### Step 2: Quantitative Checks
 <step_requirement>MUST complete before Step 3. Extract counts first, then compare.</step_requirement>
 
-**Extract parameter counts and feature lists from contracts using the patterns in `references/extraction-logic.md`:**
+**Extract parameter counts and feature lists from contracts using these patterns:**
 
-- Count parameters mentioned in creative-brief.md
-- Count parameters in parameter-spec.md
-- Count controls in mockup render-spec.yaml
-- Detect feature keywords (preset, bypass, meter, tabs, etc.)
-- Compare for mismatches
+**From creative-brief.md:**
+- Count parameter mentions (parameter names in quotes or CAPS, e.g., "GAIN", "FREQUENCY")
+- Detect feature keywords: "preset", "bypass", "meter", "visualization", "tabs", "sections"
+
+**From parameter-spec.md:**
+- Count total parameters defined
+- Extract parameter names list
+
+**From mockup YAML (render-spec.yaml):**
+- Count controls in layout (knob, slider, button elements)
+- Detect UI features: preset_browser, meter, spectrum_analyzer, tabs, multi_page_layout
+
+**Comparison logic:**
+```typescript
+briefParamCount = extractParameterCount(creativeBrief);
+specParamCount = countParameters(parameterSpec);
+mockupParamCount = countControlsInLayout(mockup.layout);
+
+parameterMatch = (briefParamCount == specParamCount == mockupParamCount);
+
+briefFeatures = extractFeatureKeywords(brief);
+mockupFeatures = detectUIFeatures(mockup);
+featureMatch = compareFeatureLists(briefFeatures, mockupFeatures);
+```
 
 **Parameter count thresholds:**
-
 - Match (0-1 difference): No drift
 - Small increase (2-4): Acceptable evolution
 - Large increase (5+): Drift requiring attention
 - Massive (2x or more): Critical drift
 - Any decrease: Drift requiring attention (scope reduction)
 
-**Feature detection:**
-Keywords to search in brief:
+**Verification checkpoint:**
 
-- "preset", "presets"
-- "bypass"
-- "meter", "visualization"
-- "undo/redo"
-- "A/B compare"
+Confirm parameter counts extracted successfully:
+- Creative brief: [X] parameters
+- Parameter-spec: [Y] parameters
+- Mockup: [Z] controls
 
-Check if mockup YAML contains corresponding components.
+If counts couldn't be extracted (files malformed, unclear), BLOCK and present error menu:
+
+```
+❌ Cannot extract parameter counts
+
+Unable to parse parameter counts from contracts. Manual verification needed.
+
+Actions:
+1. Provide counts manually - Enter parameter counts to continue
+2. Skip quantitative check - Proceed with semantic validation only
+3. Debug extraction - Show contract excerpts for inspection
+4. Other
+```
+
+Only proceed to Step 3 when counts are confirmed.
 
 ### Step 3: Semantic Validation (Extended Thinking)
 <step_requirement>MUST use extended thinking. MUST NOT skip semantic analysis.</step_requirement>
 
-**Use extended thinking to answer:**
+**Invoke the `mcp__sequential-thinking__sequentialthinking` tool with the following prompt:**
 
 1. **Visual style alignment:**
 
@@ -153,166 +206,138 @@ Answer:
 Assess confidence: HIGH / MEDIUM / LOW
 ```
 
-**You MUST use extended thinking for Step 3. This is not optional. Budget: 8000 tokens.**
+**Confidence check:**
+
+After extended thinking completes, assess the confidence level returned.
+
+**If confidence is LOW:**
+1. Re-examine contracts for ambiguity or missing information
+2. Present clarification menu to user:
+
+```
+⚠️ Semantic validation uncertain (LOW confidence)
+
+Extended thinking analysis could not confidently determine alignment.
+
+Ambiguity detected:
+[Specific reason from extended thinking - e.g., "Brief aesthetic 'vintage warmth' is subjective"]
+
+Actions:
+1. Provide clarification - Answer: Is this mockup aligned with your vision?
+2. Review side-by-side - Show brief vs mockup details
+3. Proceed with quantitative only - Skip semantic validation (not recommended)
+4. Other
+```
+
+**If confidence is MEDIUM:**
+- Note uncertainty in findings presentation
+- Proceed to Step 4 with caveat
+
+**If confidence is HIGH:**
+- Proceed to Step 4 normally
+
+Do not proceed to Step 4 until confidence is at least MEDIUM or user provides clarification.
+
+**Retry pattern:**
+
+If extended thinking tool fails, times out, or returns error:
+
+1. **Retry once** with simplified prompt:
+   ```
+   Compare creative brief with mockup to assess alignment.
+   Brief concept: [extract]
+   Mockup delivers: [extract]
+   Answer: Does mockup match brief? (YES/NO/UNCERTAIN)
+   Reasoning: [explain]
+   ```
+
+2. **If retry fails**, fall back to quantitative-only validation:
+   - Warn user: "Semantic validation unavailable (tool failure). Proceeding with parameter counts and feature detection only."
+   - Present findings based on Step 2 quantitative checks alone
+   - Mark assessment with caveat: "Quantitative-only validation (semantic analysis unavailable)"
+
+3. **If quantitative validation also failed**, BLOCK with error menu:
+   ```
+   ❌ Validation failed
+
+   Both semantic and quantitative validation failed. Cannot assess drift reliably.
+
+   Actions:
+   1. Manual verification - Review contracts manually
+   2. Retry validation - Attempt design-sync again
+   3. Skip validation - Proceed without sync (not recommended)
+   4. Other
+   ```
 
 ### Step 4: Categorize Drift
 <step_requirement>MUST categorize based on Step 2+3 findings before presenting.</step_requirement>
 
-Based on findings:
+**Use these thresholds and indicators to categorize drift objectively:**
 
 **No drift detected:**
-
-- Parameter counts match (±1)
-- All features present
-- Style aligned (semantic validation: YES)
+- Parameter counts match (±1 difference)
+- All brief-mentioned features present in mockup
+- Semantic validation confidence: HIGH
+- Visual style aligned with brief aesthetic
 - Mockup delivers on brief promise
+- Use cases supported
 
 **Acceptable evolution:**
+- Parameter count increased 2-4 parameters
+- Visual polish added (animations, gradients, refinements)
+- Layout refined for UX (better organization, spacing)
+- Additions improve design and are justified (semantic validation explains why)
+- Core concept intact (same plugin type, same goals)
+- Brief use cases still supported
 
-- Parameter count increased slightly (2-4)
-- Visual polish added
-- Layout refined for UX
-- Additions improve design (justified)
-- Core concept intact
-
-**Attention needed:**
-
-- Missing features from brief
-- Style mismatch (different direction)
-- Significant scope change (±5 parameters)
+**Drift requiring attention:**
+- Missing features mentioned in brief
+- Visual style mismatch (different aesthetic direction)
+- Significant scope change (±5 parameters OR different feature set)
+- Parameter count decreased (scope reduction)
 - Brief and mockup tell different stories
+- Semantic validation confidence: MEDIUM or contradictory findings
 
 **Critical drift:**
+- Mockup contradicts brief's core concept (different plugin type)
+- Missing essential/primary features
+- Massive scope change (2x parameters or more, OR completely different feature set)
+- Completely opposite visual style (e.g., vintage warmth → stark modern minimal)
+- Brief use cases NOT supported by mockup
+- Semantic validation confidence: LOW or identifies fundamental misalignment
 
-- Mockup contradicts brief's core concept
-- Missing essential features
-- Massive scope change (2x parameters or more)
-- Completely opposite visual style
+**Categorization decision tree:**
+```typescript
+if (parameterMatch && featureMatch && styleAligned) {
+  return "NO_DRIFT";
+} else if (minorParamIncrease && coreConceptIntact && semanticConfidence >= MEDIUM) {
+  return "ACCEPTABLE_EVOLUTION";
+} else if (majorExpansion || missingFeatures || styleMismatch) {
+  return "DRIFT_REQUIRING_ATTENTION";
+} else if (contradictsCoreGoals || massiveExpansion || fundamentalMisalignment) {
+  return "CRITICAL_DRIFT";
+}
+```
+
+**For detailed examples of each category, see `references/drift-detection.md`.**
 
 ### Step 5: Present Findings
 <step_requirement>MUST present appropriate decision menu based on drift category.</step_requirement>
 
-#### If No Drift:
+**Select menu template based on Step 4 categorization:**
 
-<decision_gate>
-<gate_name>no-drift-confirmation</gate_name>
-<blocking>true</blocking>
-<wait_for_user>REQUIRED - Present menu and WAIT. MUST NOT auto-select option 1 even though marked "(recommended)".</wait_for_user>
+- **No drift**: Present approval menu (see `references/decision-gates.md#no-drift-confirmation`)
+- **Acceptable evolution**: Present evolution confirmation menu (see `references/decision-gates.md#acceptable-evolution-choice`)
+- **Drift requiring attention**: Present drift resolution menu (see `references/decision-gates.md#drift-requiring-attention`)
+- **Critical drift**: Present blocking menu, no override option (see `references/decision-gates.md#critical-drift-blocked`)
 
-```
-✓ Design-brief alignment verified
+**For all menus:**
+- Populate template with actual findings from Steps 2-3
+- Present menu and WAIT for user selection
+- NEVER auto-proceed to option 1, even if marked "(recommended)"
+- ALWAYS use `<decision_gate>` tags with `<blocking>true</blocking>` and `<wait_for_user>REQUIRED</wait_for_user>`
 
-- Parameter count: 12 (matches brief)
-- All features present: preset browser, bypass, meter
-- Visual style aligned: Modern minimal with analog warmth
-
-What's next?
-1. Continue implementation (recommended) - Alignment confirmed
-2. Review details - See full comparison
-3. Other
-```
-
-</decision_gate>
-
-#### If Acceptable Evolution:
-
-<decision_gate>
-<gate_name>acceptable-evolution-choice</gate_name>
-<blocking>true</blocking>
-<wait_for_user>REQUIRED - Present menu and WAIT. MUST NOT auto-proceed.</wait_for_user>
-
-```
-⚠️ Design evolution detected (acceptable)
-
-**Changes from brief:**
-- Parameter count: 12 (brief: 8) +4 parameters
-  - Added: TONE, DRIVE, MIX, WIDTH
-- Added features: Visual feedback meter (not in brief)
-- Visual refinements: Animation polish, gradient backgrounds
-
-**Assessment:** Reasonable evolution based on design iteration
-
-**Reasoning:**
-Added parameters (TONE, DRIVE, MIX, WIDTH) provide necessary tonal shaping not
-anticipated in original brief. Visual meter improves usability during performance.
-Core concept ("vintage tape delay") preserved.
-
-What's next?
-1. Update brief and continue (recommended) - Document evolution
-2. Review changes - See detailed comparison
-3. Revert to original - Simplify mockup to match brief
-4. Other
-```
-
-</decision_gate>
-
-#### If Drift Requiring Attention:
-
-<decision_gate>
-<gate_name>drift-attention-choice</gate_name>
-<blocking>true</blocking>
-<wait_for_user>REQUIRED - Present menu and WAIT. MUST NOT auto-proceed.</wait_for_user>
-
-```
-⚠️ Design drift detected
-
-**Issues found:**
-1. Missing feature: "Preset browser" mentioned in brief, absent in mockup
-   - Brief line 42: "Include preset system for patch recall"
-   - Mockup: No preset-related components
-2. Visual style mismatch:
-   - Brief: "Vintage warmth with analog aesthetics"
-   - Mockup: Stark modern minimal with flat colors
-3. Parameter count: 5 (brief: 12) - significant reduction
-   - Removed: FEEDBACK_TONE, MOD_DEPTH, SPREAD, MIX, WIDTH, DRY, WET
-
-**Recommendation:** Address drift before implementation
-
-**Confidence:** HIGH (clear quantitative + semantic misalignment)
-
-What's next?
-1. Update mockup - Add missing features, adjust style to match brief
-2. Update brief - Brief overpromised, mockup is realistic scope
-3. Continue anyway (override) - Accept drift, proceed with mockup as-is
-4. Review detailed comparison - See side-by-side analysis
-5. Other
-```
-
-</decision_gate>
-
-#### If Critical Drift:
-
-<decision_gate>
-<gate_name>critical-drift-blocked</gate_name>
-<blocking>true</blocking>
-<wait_for_user>REQUIRED - Present menu and WAIT. MUST NOT provide override option for critical drift.</wait_for_user>
-
-```
-❌ Critical design drift - Implementation BLOCKED
-
-**Critical issues:**
-1. Brief core concept: "Tempo-synced rhythmic delay with modulation"
-   Mockup delivers: Basic feedback delay (no tempo sync, no modulation)
-2. Parameter count: 25 (brief: 5) - 5x scope creep
-   - Brief: DELAY_TIME, FEEDBACK, MIX, TONE, DRIVE
-   - Mockup: 20 additional parameters for features not mentioned in brief
-
-**Action required:** Resolve drift before implementation can proceed
-
-**Why blocking:**
-Mockup contradicts core concept. Implementation would not match user's vision.
-High risk of complete rework.
-
-What's next?
-1. Update mockup - Align with brief's core concept (tempo sync + modulation)
-2. Update brief - Revise concept to match mockup's approach (basic delay)
-3. Start over - Create new mockup from brief
-4. Other
-
-(Option to override not provided - critical drift must be resolved)
-```
-
-</decision_gate>
+See `references/decision-gates.md` for complete menu templates and examples.
 
 ### Step 6: Execute User Choice
 <step_requirement>MUST execute choice from Step 5 gate before proceeding to Step 7.</step_requirement>
@@ -327,10 +352,9 @@ Update brief's "UI Vision" section to reflect current mockup (preserve original 
 
 **Option 2: Update mockup**
 
-- Return user to ui-mockup skill
-- Present drift findings
-- Iterate design to align with brief
-- Re-run design-sync after changes
+- Exit design-sync (do not auto-invoke ui-mockup)
+- Instruct user: "To update mockup, invoke ui-mockup skill with: `Skill('ui-mockup')`"
+- Present drift findings for user to address in next ui-mockup iteration
 
 **Option 3: Continue anyway (override)**
 
@@ -398,29 +422,7 @@ Choose (1-6): _
 
 **ui-mockup Phase 4.5** (after finalization, before C++ generation):
 
-```markdown
-✓ Mockup finalized: v3
-
-parameter-spec.md generated (12 parameters)
-
-What's next?
-
-1. Check alignment - Run design-sync validation (recommended)
-2. Generate implementation files - Proceed to Phase 5
-3. Iterate design - Make more changes
-4. Other
-```
-
-If user chooses "Check alignment" → invoke design-sync skill
-
-**Flow:**
-
-1. ui-mockup finishes Phase 4 (generates YAML + test HTML + parameter-spec.md)
-2. Presents decision menu with "Check alignment" option
-3. If chosen: Invokes design-sync skill
-4. design-sync validates, presents findings
-5. User resolves any drift
-6. Returns to ui-mockup to continue Phase 5 (or iterate)
+When user chooses "Check alignment" from the ui-mockup Phase 4.5 decision menu → invokes design-sync via: `Skill('design-sync')` (see Step 7 for details on handoff protocol and menu structure).
 
 ---
 
@@ -448,7 +450,7 @@ Running mandatory design-sync validation...
 **Validation flow:**
 
 1. Check for parameter-spec.md existence
-2. If exists → RUN design-sync automatically (not optional)
+2. If exists → invoke design-sync automatically via: `Skill('design-sync')` (not optional)
 3. Present findings with decision menu
 4. BLOCK Stage 2 dispatch until resolved:
    - No drift → Continue to Stage 2
@@ -465,12 +467,11 @@ Stage 2 generates CMakeLists.txt, boilerplate, and build system. If contracts ar
 
 ---
 
-<requirements>
-<section>Success Criteria</section>
+## Success Criteria
 
 Validation is successful when ALL of these are met:
 
-- ✅ Both contracts loaded (brief + parameter-spec + mockup YAML)
+- ✅ Both contracts loaded (creative brief + parameter-spec + mockup YAML)
 - ✅ Quantitative checks completed (parameter count, feature detection)
 - ✅ Semantic validation performed (extended thinking analysis)
 - ✅ Drift category assigned (none / acceptable / attention / critical)
@@ -478,105 +479,38 @@ Validation is successful when ALL of these are met:
 - ✅ User action executed (update brief / update mockup / override)
 
 MUST NOT mark validation complete until all requirements met.
-</requirements>
 
 ---
 
 ## Error Handling
 
-**Missing contracts:**
+**Common error scenarios:**
 
-```
-❌ Cannot validate: creative-brief.md not found
+1. **Missing contracts** (creative-brief.md, parameter-spec.md, or mockup not found)
+   - BLOCK validation
+   - Present menu: "Generate parameter-spec.md" / "Create creative brief" / "Skip validation"
 
-design-sync requires creative brief to validate against mockup.
+2. **No finalized mockup** (YAML exists but parameter-spec.md not generated)
+   - BLOCK validation
+   - Route user to ui-mockup skill to finalize
 
-Actions:
-1. Create brief - Document vision before validation
-2. Skip validation - Proceed without sync (not recommended)
-3. Other
-```
+3. **Ambiguous findings** (semantic validation returns MEDIUM/LOW confidence)
+   - Present clarification menu
+   - Ask user: "Is this mockup aligned with your vision?"
+   - Use response to finalize categorization
 
-**No mockup finalized:**
+4. **Override tracking**
+   - When user overrides drift warnings, log to `.validator-overrides.yaml`
+   - Include: timestamp, finding, severity, override reason, approved-by
+   - Provides audit trail
 
-```
-❌ Cannot validate: No finalized mockup found
-
-design-sync requires:
-- mockups/v[N]-ui.yaml (finalized mockup spec)
-- parameter-spec.md (generated from mockup)
-
-Current state:
-- Mockups: v1-ui.yaml, v2-ui.yaml (no parameter-spec.md)
-
-Actions:
-1. Finalize mockup - Generate parameter-spec.md via ui-mockup
-2. Skip validation - Proceed without sync (not recommended)
-3. Other
-```
-
-**Ambiguous findings:**
-
-```
-⚠️ Drift assessment uncertain
-
-Quantitative checks:
-- Parameter count: 10 (brief: 8) +2 parameters ← Minor difference
-- Features: All present
-
-Semantic validation:
-- Visual style: MEDIUM confidence alignment
-  - Brief aesthetic: "Vintage warmth"
-  - Mockup aesthetic: "Brushed metal with warm colors"
-  - Ambiguous: Is brushed metal "vintage"?
-
-**Asking for user input:**
-Is this mockup style aligned with your "vintage warmth" vision?
-
-1. Yes - Style matches intent (acceptable evolution)
-2. No - Style misses the mark (drift requiring attention)
-3. Review side-by-side - See comparison
-4. Other
-```
-
-**Override tracking:**
-
-All overrides logged to `.validator-overrides.yaml`:
-
-```yaml
-overrides:
-  - timestamp: 2025-11-10T14:32:00Z
-    validator: design-sync
-    plugin: DelayPlugin
-    mockup-version: v3
-    finding: parameter-count-increase
-    severity: attention
-    details: "Brief: 8 parameters, Mockup: 12 parameters (+4)"
-    override-reason: "User confirmed: added parameters are intentional (TONE, DRIVE, MIX, WIDTH)"
-    approved-by: User
-```
-
-Enables audit trail: "Why did we proceed with drift?"
+See `references/error-handling.md` for complete error scenarios and menu examples.
 
 ---
 
-## Notes for Claude
+## Common Pitfalls (Anti-Patterns)
 
-**When executing design-sync, MUST follow these rules:**
-
-1. ALWAYS load all three contracts first (brief, parameter-spec, mockup YAML)
-2. ALWAYS run quantitative checks before semantic validation (faster)
-3. MUST use extended thinking for semantic validation (8k budget) - not optional
-4. MUST categorize drift objectively (use thresholds from references/drift-detection.md)
-5. MUST present appropriate decision menu (based on drift category)
-6. After presenting decision menu, MUST WAIT for user response - NEVER auto-proceed
-7. If user approves evolution, update brief's Evolution section
-8. ALWAYS log overrides to .validator-overrides.yaml
-9. NEVER auto-override (user must explicitly choose)
-10. After user choice executed, MUST route back to ui-mockup Phase 5.5
-
-<anti-patterns>
-**Common pitfalls (AVOID THESE):**
+**AVOID THESE:**
 
 - Forgetting to use extended thinking for semantic validation (critical for accuracy)
 - Auto-categorizing as "acceptable" without checking (be objective)
@@ -584,27 +518,6 @@ Enables audit trail: "Why did we proceed with drift?"
 - Providing "override" for critical drift (should be blocked)
 - Updating mockup instead of brief (mockup is source of truth, brief gets updated)
 - Not logging overrides (audit trail required)
-</anti-patterns>
-
----
-
-## Quality Guidelines
-
-**Good drift detection:**
-
-- ✅ Specific findings ("Missing feature: preset browser from brief line 42")
-- ✅ Quantitative evidence (parameter counts, feature lists)
-- ✅ Semantic reasoning (why style does/doesn't match aesthetic)
-- ✅ Confidence levels stated (HIGH/MEDIUM/LOW)
-- ✅ Actionable recommendations
-
-**Avoid:**
-
-- ❌ Vague assessments ("Mockup looks different")
-- ❌ Missing quantitative data (no parameter counts)
-- ❌ No semantic analysis (just counting, no reasoning)
-- ❌ Unclear confidence (is this certain or uncertain?)
-- ❌ No clear recommendations (what should user do?)
 
 ---
 
@@ -616,14 +529,3 @@ See `references/examples.md` for four detailed validation scenarios:
 3. **Drift Requiring Attention** - Missing features, style mismatch (~5 minutes)
 4. **Critical Drift (Blocked)** - Contradicts core concept, massive scope change (~10 minutes)
 
----
-
-## Future Enhancements
-
-**Not in Phase 7 scope, but potential:**
-
-- Visual diff tool (side-by-side brief vs mockup comparison)
-- Automated brief updating (AI-generated Evolution sections)
-- Historical drift tracking (drift patterns over time)
-- Confidence calibration (track prediction accuracy)
-- Integration with version control (git diff for brief changes)

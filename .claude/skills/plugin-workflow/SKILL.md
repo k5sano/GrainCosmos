@@ -39,6 +39,17 @@ This skill orchestrates plugin implementation stages 2-6. Stages 0-1 (Research &
     Stages 2-5 MUST be delegated to subagents via Task tool.
     This skill is a PURE ORCHESTRATOR - it NEVER implements plugin code directly.
 
+    **Delegation sequence for every stage 2-5 invocation:**
+    1. BEFORE invoking subagent, read contract files:
+       - architecture.md (DSP design from Stage 0)
+       - plan.md (implementation strategy from Stage 1)
+       - parameter-spec.md (parameter definitions)
+    2. Read Required Reading:
+       - troubleshooting/patterns/juce8-critical-patterns.md (MANDATORY)
+    3. Construct prompt with contracts + Required Reading prepended
+    4. Invoke subagent via Task tool with constructed prompt
+    5. AFTER subagent returns, execute checkpoint protocol (6 steps)
+
     <enforcement>
       IF stage in [2,3,4,5] AND action != "invoke_subagent_via_Task":
         STOP execution
@@ -105,10 +116,26 @@ This skill orchestrates plugin implementation stages 2-6. Stages 0-1 (Research &
     All subagents (stages 2-5) MUST receive Required Reading file to prevent repeat mistakes.
 
     <enforcement>
-      BEFORE invoking subagent via Task tool:
+      ALWAYS inject Required Reading at start of subagent prompt:
+
+      Before invoking subagent via Task tool:
       1. Read troubleshooting/patterns/juce8-critical-patterns.md
-      2. Inject content into subagent prompt
-      3. Verify injection succeeded
+      2. Prepend to subagent prompt with this format:
+
+      ```typescript
+      const criticalPatterns = await Read('troubleshooting/patterns/juce8-critical-patterns.md');
+      const prompt = `CRITICAL PATTERNS (MUST FOLLOW):
+
+      ${criticalPatterns}
+
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      [Stage-specific instructions follow...]`;
+
+      await Task({ subagent_type: "dsp-agent", description: prompt });
+      ```
+
+      This ensures subagents receive Required Reading before implementation instructions.
     </enforcement>
   </state_requirement>
 </orchestration_rules>
@@ -198,6 +225,29 @@ Each stage is fully documented in its own reference file in `references/` subdir
   </routing_logic>
 </decision_gate>
 
+### Pre-Resume Verification Checklist
+
+When resuming via `/continue [PluginName]`, verify state integrity before proceeding:
+
+```
+Pre-Resume Checklist:
+- [ ] .continue-here.md exists and is valid YAML
+- [ ] verifyStateIntegrity() passes (exit 0)
+- [ ] Contracts unchanged since last checkpoint (checksums match)
+- [ ] Git working directory clean (no uncommitted changes)
+- [ ] PLUGINS.md status matches .continue-here.md stage
+```
+
+**Verification sequence:**
+1. Read .continue-here.md and parse YAML
+2. Run verifyStateIntegrity() from state-management.md
+3. Check contract file checksums vs. checksums in .continue-here.md
+4. Run `git status --porcelain` (expect empty output)
+5. Compare PLUGINS.md status emoji to .continue-here.md stage field
+
+**If all checks pass**: Resume at stage specified in .continue-here.md
+**If any fail**: Present recovery menu (reconcile / clean working directory / review changes)
+
 ---
 
 ## Stage Dispatcher
@@ -228,7 +278,13 @@ See `references/state-management.md` for `verifyStateIntegrity()` function.
 - Contract checksums match (exit 3 if tampered)
 - No stale handoffs from completed plugins (exit 4, auto-cleanup)
 
-If verification fails, BLOCK dispatch and guide user to resolution (/reconcile, restore contracts, etc.)
+**If verification fails:**
+
+State mismatch detected (exit 2):
+- This is a BLOCKING error - workflow cannot continue
+- User must manually run `/reconcile [PluginName]` to fix
+- Do NOT auto-invoke reconciliation (requires user decision on which source is correct: planning state or implementation state)
+- After reconciliation completes: Resume workflow from corrected state
 
 2. **Determine current stage:**
 
@@ -267,315 +323,29 @@ See `references/state-management.md` for `checkStagePreconditions()` function.
   See [references/dispatcher-pattern.md](references/dispatcher-pattern.md) for full pseudocode.
 </dispatcher_pattern>
 
-<phase_aware_dispatch stages="4,5" enforcement_level="MANDATORY">
-  **Purpose:** Prevent "implement all phases" errors by detecting and looping phases for complex plugins.
-
-  **When:** Before invoking dsp-agent (Stage 4) or gui-agent (Stage 5)
-
-  **Applies to:** Stages 4 and 5 only. Stages 2, 3, and 6 remain single-pass.
-
-  <phase_detection_algorithm>
-    **Determine if phased implementation is needed:**
-
-    ```typescript
-    // 1. Read plan.md to check for phases
-    const planContent = readFile(`plugins/${pluginName}/.ideas/plan.md`);
-
-    // 2. Extract complexity score
-    const complexityMatch = planContent.match(/\*\*Complexity Score:\*\*\s+([\d.]+)/);
-    const complexityScore = complexityMatch ? parseFloat(complexityMatch[1]) : 0;
-
-    // 3. Check for phase markers based on current stage
-    const stagePhasePattern = currentStage === 4
-      ? /### Phase 4\.\d+/g
-      : /### Phase 5\.\d+/g;
-
-    const hasPhases = stagePhasePattern.test(planContent);
-
-    // 4. Determine execution strategy
-    const needsPhasedImplementation = complexityScore >= 3 && hasPhases;
-
-    console.log(`Complexity: ${complexityScore}, Has phases: ${hasPhases}`);
-    console.log(`Execution mode: ${needsPhasedImplementation ? "PHASED" : "SINGLE-PASS"}`);
-    ```
-  </phase_detection_algorithm>
-
-  <routing_decision>
-    **Based on detection results, route to appropriate handler:**
-
-    <single_pass_condition>
-      **IF complexity < 3 OR no phase markers found:**
-
-      1. Invoke subagent ONCE for entire stage
-      2. Use prompt template from reference file single-pass section:
-         - Stage 4: `references/stage-4-dsp.md` lines 45-87 (single-pass implementation)
-         - Stage 5: `references/stage-5-gui.md` lines 83-135 (single-pass implementation)
-      3. Checkpoint after stage completes (standard 6-step checkpoint)
-      4. Present decision menu (continue to next stage, pause, test, etc.)
-    </single_pass_condition>
-
-    <phased_implementation_condition>
-      **IF complexity ≥3 AND phase markers found:**
-
-      **Phase parsing:**
-      ```typescript
-      // Extract all phases for current stage from plan.md
-      const phasePattern = currentStage === 4
-        ? /### Phase (4\.\d+):\s*(.+?)$/gm
-        : /### Phase (5\.\d+):\s*(.+?)$/gm;
-
-      const phases = [];
-      let match;
-      while ((match = phasePattern.exec(planContent)) !== null) {
-        phases.push({
-          number: match[1],        // e.g., "4.1" or "5.1"
-          description: match[2]    // e.g., "Voice Architecture" or "Layout and Basic Controls"
-        });
-      }
-
-      console.log(`Stage ${currentStage} will execute in ${phases.length} phases:`);
-      phases.forEach(phase => {
-        console.log(`  - Phase ${phase.number}: ${phase.description}`);
-      });
-      ```
-
-      **Phase execution loop:**
-      ```typescript
-      for (let i = 0; i < phases.length; i++) {
-        const phase = phases[i];
-
-        console.log(`\n━━━ Stage ${phase.number} - ${phase.description} ━━━\n`);
-
-        // Invoke subagent for THIS PHASE ONLY
-        const phaseResult = Task({
-          subagent_type: currentStage === 4 ? "dsp-agent" : "gui-agent",
-          description: `Implement Phase ${phase.number} for ${pluginName}`,
-          prompt: constructPhasePrompt(phase, pluginName, currentStage, phases.length)
-        });
-
-        // Parse subagent report
-        const phaseReport = parseSubagentReport(phaseResult);
-
-        // Validate phase completion
-        if (!phaseReport || phaseReport.status === "failure") {
-          console.log(`✗ Phase ${phase.number} (${phase.description}) failed`);
-          presentPhaseFailureMenu(phase, phaseReport);
-          return; // BLOCK progression - do not continue to next phase
-        }
-
-        // Phase succeeded
-        console.log(`✓ Phase ${phase.number} complete: ${phase.description}`);
-        console.log(`  - Components: ${phaseReport.outputs.components_this_phase?.join(", ") || "N/A"}`);
-
-        // CHECKPOINT: Commit phase changes
-        commitPhase(pluginName, phase, i + 1, phases.length);
-
-        // CHECKPOINT: Update handoff file
-        updateHandoff(
-          pluginName,
-          currentStage,
-          phase.number,
-          `Phase ${phase.number} complete: ${phase.description}`,
-          i < phases.length - 1
-            ? [`Continue to Phase ${phases[i + 1].number}`, "Review phase code", "Test", "Pause"]
-            : ["Continue to Stage " + (currentStage + 1), "Review complete stage", "Test", "Pause"]
-        );
-
-        // CHECKPOINT: Update plugin status
-        updatePluginStatus(pluginName, `🚧 Stage ${phase.number}`);
-
-        // CHECKPOINT: Update plan.md with phase completion timestamp
-        const timestamp = new Date().toISOString();
-        updatePlanMd(pluginName, phase.number, timestamp);
-
-        // CHECKPOINT: Verify all steps completed
-        verifyPhaseCheckpoint(pluginName, phase.number);
-
-        // DECISION MENU: Present between phases (BLOCKING)
-        if (i < phases.length - 1) {
-          console.log(`
-✓ Phase ${phase.number} complete
-
-Progress: ${i + 1} of ${phases.length} phases complete
-
-What's next?
-
-1. Continue to Phase ${phases[i + 1].number} (recommended)
-2. Review Phase ${phase.number} code
-3. Test current implementation
-4. Pause here
-5. Other
-
-Choose (1-5): _
-          `);
-
-          const choice = getUserInput(); // BLOCKING WAIT
-          if (choice === "4" || choice.toLowerCase() === "pause") {
-            console.log(`\n⏸ Paused between phases. Resume with /continue ${pluginName}`);
-            return; // Exit workflow, state saved for resume
-          }
-          // Other choices handled by menu router
-        }
-      }
-
-      console.log(`\n✓ All ${phases.length} phases complete for Stage ${currentStage}!`);
-      ```
-
-      **After ALL phases complete:**
-      1. Commit final stage state (if not already committed)
-      2. Update handoff to next stage
-      3. Update plugin status to reflect stage completion
-      4. Present stage completion decision menu
-      5. WAIT for user response
-    </phased_implementation_condition>
-  </routing_decision>
-
-  <prompt_construction>
-    **For each phase invocation, construct phase-specific prompt:**
-
-    ```typescript
-    function constructPhasePrompt(phase, pluginName, currentStage, totalPhases) {
-      // Read Required Reading (MANDATORY for all subagents)
-      const criticalPatterns = readFile("troubleshooting/patterns/juce8-critical-patterns.md");
-
-      // Read contracts
-      const architectureMd = readFile(`plugins/${pluginName}/.ideas/architecture.md`);
-      const parameterSpecMd = readFile(`plugins/${pluginName}/.ideas/parameter-spec.md`);
-      const planMd = readFile(`plugins/${pluginName}/.ideas/plan.md`);
-
-      // Stage-specific additional contracts
-      const creativeBriefMd = currentStage === 5
-        ? readFile(`plugins/${pluginName}/.ideas/creative-brief.md`)
-        : null;
-
-      const mockupPath = currentStage === 5
-        ? findLatestMockup(pluginName)
-        : null;
-
-      return `CRITICAL PATTERNS (MUST FOLLOW):
-
-${criticalPatterns}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Implement Phase ${phase.number} for plugin at plugins/${pluginName}.
-
-**Current Phase:** ${phase.number} - ${phase.description}
-**Total Phases:** ${totalPhases}
-**Plugin Name:** ${pluginName}
-
-**Contracts:**
-- architecture.md:
-${architectureMd}
-
-- parameter-spec.md:
-${parameterSpecMd}
-
-- plan.md (Phase ${phase.number} section):
-${planMd}
-
-${currentStage === 5 ? `
-- creative-brief.md:
-${creativeBriefMd}
-
-- UI Mockup: ${mockupPath}
-` : ''}
-
-**Tasks for Phase ${phase.number}:**
-1. Read plan.md and extract Phase ${phase.number} components ONLY
-2. Read architecture.md for component specifications
-${currentStage === 4 ? `3. Add member variables for Phase ${phase.number} DSP components
-4. Implement Phase ${phase.number} components in processBlock()
-5. Build on existing code from previous phases (do NOT remove previous work)
-6. Connect Phase ${phase.number} parameters only
-7. Ensure real-time safety (no allocations, use juce::ScopedNoDenormals)` : `3. Implement UI elements for Phase ${phase.number}
-4. Add parameter bindings for Phase ${phase.number} controls
-5. Build on existing UI from previous phases (do NOT remove previous work)
-6. Verify member order (Relays → WebView → Attachments)
-7. Ensure all Phase ${phase.number} parameter IDs match HTML element IDs`}
-8. Update plan.md with phase completion timestamp
-9. Return JSON report with phase_completed: "${phase.number}"
-
-**CRITICAL:** Implement ONLY Phase ${phase.number} components. Preserve all code from previous phases.
-
-Build verification handled by workflow after agent completes.
-`;
-    }
-    ```
-
-    **Key differences from single-pass prompt:**
-    - Explicitly states current phase number and description
-    - Emphasizes "THIS PHASE ONLY" - not all phases
-    - Reminds to preserve previous phase code
-    - Includes phase completion timestamp requirement
-    - JSON report must include phase_completed field
-  </prompt_construction>
-
-  <error_prevention>
-    <anti_pattern severity="CRITICAL">
-      **The problem this solves:**
-
-      ❌ **NEVER send** "Implement ALL phases" to subagent
-      - Causes compilation errors from attempting too much
-      - Led to DrumRoulette Stage 5 failure (3 phases → single invocation → build errors)
-      - Violates incremental implementation principle
-
-      ✓ **ALWAYS invoke** subagent once per phase with phase-specific prompt
-      - One phase at a time, sequential execution
-      - Checkpoint after EACH phase
-      - User confirmation between phases
-      - Incremental testing and validation
-    </anti_pattern>
-
-    <enforcement>
-      **Phase-aware dispatch is MANDATORY for Stages 4-5 when:**
-      1. Complexity score ≥3 (from plan.md)
-      2. Phase markers exist in plan.md (### Phase 4.X or ### Phase 5.X)
-
-      **Phase-aware dispatch is SKIPPED for Stages 4-5 when:**
-      1. Complexity score <3 (simple plugin, single-pass sufficient)
-      2. No phase markers in plan.md (plan didn't define phases)
-
-      **Phase-aware dispatch DOES NOT APPLY to:**
-      - Stage 2 (Foundation) - always single-pass
-      - Stage 3 (Shell) - always single-pass
-      - Stage 6 (Validation) - always single-pass
-
-      **The orchestrator MUST:**
-      - Read plan.md to detect phases BEFORE invoking subagent
-      - Parse ALL phases for the stage
-      - Loop through phases sequentially
-      - Present decision menu after EACH phase
-      - WAIT for user confirmation before next phase
-
-      **The orchestrator MUST NOT:**
-      - Skip phase detection (this is mandatory control flow)
-      - Invoke subagent with multiple phases at once
-      - Auto-proceed between phases without user confirmation
-      - Reference stage-4-dsp.md or stage-5-gui.md reference files for control flow (those are documentation/templates only)
-    </enforcement>
-  </error_prevention>
-
-  <integration_with_checkpoint_protocol>
-    **Phase checkpoints are identical to stage checkpoints:**
-
-    After each phase completes:
-    1. ✓ Commit phase changes (git commit with phase number)
-    2. ✓ Update handoff (.continue-here.md with current phase)
-    3. ✓ Update plugin status (PLUGINS.md with phase emoji)
-    4. ✓ Update plan.md (phase completion timestamp)
-    5. ✓ Verify checkpoint succeeded (all files updated)
-    6. ✓ Present decision menu (BLOCKING)
-
-    This mirrors the standard checkpoint protocol (lines 82-85, 338-443) but executes after EACH phase instead of EACH stage.
-
-    **Why this matters:**
-    - User can pause between phases (not just between stages)
-    - State is saved incrementally (phase-level granularity)
-    - Build failures isolated to single phase (easier to debug)
-    - /continue can resume mid-stage at specific phase
-  </integration_with_checkpoint_protocol>
-</phase_aware_dispatch>
+## Phase-Aware Dispatch
+
+For Stages 4-5 with complexity ≥3, use phase-aware dispatch to incrementally implement complex plugins.
+
+**When to use:**
+- Stage 4 (DSP) or 5 (GUI)
+- Complexity score ≥3 (from plan.md)
+- plan.md contains phase markers (### Phase 4.X or ### Phase 5.X)
+
+**How it works:**
+1. Detect phases by scanning plan.md for phase markers
+2. Loop through phases sequentially (Phase 4.1 → 4.2 → 4.3...)
+3. Invoke subagent once per phase with phase-specific prompt
+4. Execute checkpoint protocol after each phase
+5. Present decision menu showing progress ("Phase 2 of 4 complete")
+
+**Phase prompt construction:**
+- Include all contracts (architecture.md, plan.md, parameter-spec.md)
+- Include Required Reading (juce8-critical-patterns.md)
+- Include ONLY current phase section from plan.md
+- Mark previously completed phases
+
+For detailed algorithm, pseudocode, and examples, see [references/phase-aware-dispatch.md](references/phase-aware-dispatch.md).
 
 <design_sync_gate enforcement_level="MANDATORY">
   **Purpose:** Prevent design drift before implementation begins.
@@ -591,9 +361,10 @@ Build verification handled by workflow after agent completes.
   ```
   Before dispatching Stage 2:
 
-  1. Check if mockup exists:
-     - Look for plugins/[PluginName]/.ideas/parameter-spec.md
-     - Look for mockups/ directory with YAML files
+  1. Check for mockup:
+     - Look in plugins/[PluginName]/.ideas/mockups/
+     - Find latest version (highest v[N] prefix: v1-*, v2-*, etc.)
+     - If any mockup files exist: Invoke design-sync skill to validate brief ↔ mockup alignment
 
   2. If mockup exists:
      - Run design-sync validation automatically
@@ -927,368 +698,37 @@ ALWAYS wait for user response. NEVER auto-proceed.
 
 ## Integration Contracts
 
-### Invokes: foundation-agent (Stage 2)
-
-**When:** Stage 2 (Foundation) implementation
-
-**Sends via Task tool:**
-```
-Implement Stage 2 (Foundation) for [PluginName].
-
-**Contracts:**
-- creative-brief.md: [full content]
-- architecture.md: [full content]
-- plan.md: [full content]
-
-**Required Reading:**
-[juce8-critical-patterns.md content]
-
-**Directive:** Create foundation files (PluginProcessor.h/cpp, PluginEditor.h/cpp, CMakeLists.txt).
-Return JSON report when complete.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`:
-```json
-{
-  "agent": "foundation-agent",
-  "status": "success",
-  "outputs": {
-    "plugin_name": "PluginName",
-    "source_files_created": [
-      "Source/PluginProcessor.h",
-      "Source/PluginProcessor.cpp",
-      "Source/PluginEditor.h",
-      "Source/PluginEditor.cpp",
-      "CMakeLists.txt"
-    ]
-  },
-  "issues": [],
-  "ready_for_next_stage": true
-}
-```
-
-**Error handling:**
-- Missing contract → foundation-agent returns status: "failure", orchestrator blocks progression
-- File creation error → present retry menu to user
-- Schema validation failure → log error, block progression
-
-**Contract:** foundation-agent creates files, returns report. Orchestrator validates schema, commits changes, updates state.
-
----
-
-### Invokes: shell-agent (Stage 3)
-
-**When:** Stage 3 (Shell) implementation
-
-**Sends via Task tool:**
-```
-Implement Stage 3 (Shell) for [PluginName].
-
-**Contracts:**
-- parameter-spec.md: [full content]
-- architecture.md: [full content]
-
-**Required Reading:**
-[juce8-critical-patterns.md content]
-
-**Directive:** Implement APVTS with all parameters, state management.
-Return JSON report when complete.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
-
-**Error handling:**
-- Parameter count mismatch → present investigation menu
-- APVTS creation failed → offer retry or manual intervention
-- Schema validation failure → block progression
-
-**Contract:** shell-agent modifies files, returns report. Orchestrator validates parameter counts match parameter-spec.md.
-
----
-
-### Invokes: dsp-agent (Stage 4)
-
-**When:** Stage 4 (DSP) implementation
-
-**Sends via Task tool:**
-```
-Implement Stage 4 [Phase X] for [PluginName].
-
-**Contracts:**
-- architecture.md: [full content]
-- parameter-spec.md: [full content]
-- plan.md: [full content]
-
-**Required Reading:**
-[juce8-critical-patterns.md content]
-
-**Directive:** Implement DSP components and processing chain [for Phase X].
-Return JSON report when complete.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
-
-**Error handling:**
-- Missing DSP component → dsp-agent reports in issues array
-- Real-time safety violation → warn in checkpoint menu
-- Phase incomplete → ready_for_next_stage: false, orchestrator blocks
-
-**Contract:** dsp-agent implements DSP, returns report. Orchestrator handles phase checkpoints and state updates.
-
----
-
-### Invokes: gui-agent (Stage 5)
-
-**When:** Stage 5 (GUI) implementation
-
-**Sends via Task tool:**
-```
-Implement Stage 5 (GUI) for [PluginName].
-
-**Contracts:**
-- parameter-spec.md: [full content]
-- Mockup files: [list all v[N]-*.* files]
-
-**Required Reading:**
-[juce8-critical-patterns.md content]
-
-**Directive:** Integrate WebView UI with parameter bindings.
-Return JSON report when complete.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/subagent-report.json`
-
-**Error handling:**
-- Missing mockup → gui-agent returns error, cannot proceed
-- Relay/attachment mismatch → validate counts match parameters
-- WebView integration failed → present recovery menu
-
-**Contract:** gui-agent integrates UI, returns report. Orchestrator validates relay/attachment counts match parameter-spec.md.
-
----
-
-### Invokes: validator (Stages 1-5)
-
-**When:** After each stage completion (optional but recommended)
-
-**Sends via Task tool:**
-```
-Validate Stage [N] completion for [PluginName].
-
-**Stage:** [N]
-**Plugin:** [PluginName]
-**Contracts:**
-- [stage-specific contracts]
-
-**Expected outputs for Stage [N]:**
-[stage-specific expected outputs]
-
-Return JSON validation report.
-```
-
-**Expects:** JSON report conforming to `.claude/schemas/validator-report.json`
-
-**Error handling:**
-- Validation failure → include in checkpoint menu, let user decide
-- Override file exists → validator handles suppression
-- Schema validation failure → log warning, continue anyway (validation is advisory)
-
-**Contract:** Validator is advisory, not blocking. Orchestrator presents validation results in checkpoint menu. User makes final decision.
-
----
-
-### Invokes: build-automation (After stages 2-6)
-
-**When:** After stage completion to verify compilation
-
-**Sends via Skill tool:**
-```json
-{
-  "plugin_name": "PluginName",
-  "build_type": "Debug",
-  "operation": "build"
-}
-```
-
-**Expects:**
-```json
-{
-  "success": true,
-  "build_log": "logs/PluginName/build-timestamp.log",
-  "binary_path": "builds/PluginName/Debug/PluginName.vst3",
-  "warnings": 0,
-  "errors": 0
-}
-```
-
-**Error handling:**
-- Build failure → present recovery menu (retry, investigate, manual fix)
-- Missing CMakeLists.txt → check foundation stage completion
-- Compiler not found → delegate to system-setup skill
-
-**Contract:** Orchestrator NEVER builds directly. Always delegates to build-automation skill.
-
----
-
-### Invoked by: context-resume
-
-**Receives:**
-- Plugin name (string)
-- Stage number (integer 0-6)
-- Phase (string or null)
-- Orchestration mode (boolean, must be true)
-- Handoff context (full .continue-here.md content)
-
-**Returns:**
-- Resumes at specified stage/phase
-- Executes remaining workflow
-- Presents checkpoint menus at each stage
-- Updates state files throughout
-
-**Contract:** context-resume is READ-ONLY. Orchestrator owns all state updates. context-resume only loads and routes.
-
----
-
-### Invoked by: /implement command
-
-**Receives:**
-- Plugin name (string)
-- Entry stage (typically Stage 2, or wherever workflow paused)
-
-**Returns:**
-- Executes workflow from entry stage through Stage 6
-- Presents checkpoint menus at each stage
-- Updates PLUGINS.md to ✅ Working when complete
-
-**Contract:** Command expands to prompt that invokes this skill. Skill handles full workflow.
-
----
-
-## Data Formats
-
-### Subagent Reports
-
-**Schema:** `.claude/schemas/subagent-report.json`
-
-**Purpose:** Standardizes stage completion reports from all subagents
-
-**Validation:**
-
-```python
-import json
-from jsonschema import validate
-
-with open('.claude/schemas/subagent-report.json') as f:
-    schema = json.load(f)
-
-validate(instance=report, schema=schema)
-```
-
-**Required fields:**
-- `agent`: string (foundation-agent, shell-agent, dsp-agent, gui-agent)
-- `status`: string (success, failure)
-- `outputs`: object (must contain plugin_name)
-- `issues`: array (empty on success)
-- `ready_for_next_stage`: boolean
-
-See `.claude/schemas/README.md` for complete schema and validation examples.
-
----
-
-### Validator Reports
-
-**Schema:** `.claude/schemas/validator-report.json`
-
-**Purpose:** Standardizes validation reports from validator agent
-
-**Validation:**
-
-```python
-with open('.claude/schemas/validator-report.json') as f:
-    schema = json.load(f)
-
-validate(instance=report, schema=schema)
-```
-
-**Required fields:**
-- `agent`: string (always "validator")
-- `stage`: integer (0-6)
-- `status`: string (PASS, FAIL)
-- `checks`: array of check objects
-- `recommendation`: string
-- `continue_to_next_stage`: boolean
+Summary of subagent and system component contracts:
+
+| Component | Stage | Input | Output | Purpose |
+|-----------|-------|-------|--------|---------|
+| foundation-agent | 2 | Contracts + Required Reading | JSON report | Create build system |
+| shell-agent | 3 | Contracts + Required Reading | JSON report | Implement APVTS |
+| dsp-agent | 4 | Contracts + Required Reading | JSON report | Implement audio processing |
+| gui-agent | 5 | Contracts + Required Reading | JSON report | Integrate WebView UI |
+| validator | 1-5 | Stage-specific expectations | JSON report | Advisory validation |
+| build-automation | 2-6 | Plugin name + build config | Build result | Verify compilation |
+| context-resume | N/A | Handoff context | Workflow resumption | Resume from checkpoint |
+| /implement | N/A | Plugin name | Full workflow | Entry point command |
+
+For detailed contract specifications, JSON schemas, error handling patterns, and examples, see [references/integration-contracts.md](references/integration-contracts.md).
 
 ---
 
 ## Error Handling
 
-### Common Errors
+All errors follow a consistent format: **What failed** → **Why** → **How to fix** → **Alternatives**
 
-**Subagent returns invalid JSON:**
-- **Detection:** JSON parse error when reading subagent output
-- **Recovery:** Use fallback parsing strategies (extract from code blocks, partial JSON)
-- **User action:** If all parsing fails, present raw output and offer manual recovery
+Common error scenarios:
+- Subagent returns invalid JSON → Fallback parsing → Present raw output if all parsing fails
+- Schema validation failure → Block progression → Offer retry or risky continue
+- Build failure → Present build log excerpt → Retry/investigate/manual fix/rollback
+- State file corruption → Reconstruct from git log → User verifies before continuing
+- Checkpoint step failure → Attempt remaining steps → Present partial status
 
-**Schema validation failure:**
-- **Detection:** jsonschema.ValidationError when validating report
-- **Recovery:** Log specific validation error, block progression
-- **User action:** Present error details, offer to retry subagent or continue anyway (risky)
+Graceful degradation when components unavailable (validator, build-automation, Required Reading).
 
-**Build failure after stage:**
-- **Detection:** build-automation returns success: false
-- **Recovery:** Present build log excerpt in checkpoint menu
-- **User action:** Choose from: retry build, investigate logs, manual fix, rollback stage
-
-**State file corruption:**
-- **Detection:** YAML parse error or missing required fields in .continue-here.md
-- **Recovery:** Reconstruct from git log and PLUGINS.md
-- **User action:** Verify reconstructed state before continuing
-
-**Checkpoint step failure:**
-- **Detection:** Git commit fails, file write fails, etc.
-- **Recovery:** Log specific step failure, attempt remaining steps
-- **User action:** Present partial checkpoint status, offer manual completion
-
-### Graceful Degradation
-
-**When validator unavailable:**
-- Skip validation step
-- Log warning in checkpoint
-- Continue to present checkpoint menu
-
-**When build-automation unavailable:**
-- Fall back to direct cmake/xcodebuild (legacy mode)
-- Log warning about using legacy build
-
-**When Required Reading file missing:**
-- Log warning
-- Continue subagent invocation without Required Reading
-- May encounter known issues without pattern protection
-
-### Error Reporting Format
-
-All errors presented include:
-1. **What failed** - Specific stage/step that failed
-2. **Why it failed** - Error message or root cause
-3. **How to fix** - Actionable recovery steps
-4. **Alternative** - Other ways to proceed (pause, rollback, manual fix)
-
-Example:
-```
-ERROR: Stage 3 (Shell) failed
-
-Reason: Parameter count mismatch (expected 5, found 3)
-Missing parameters: delayTime, feedback
-
-What should I do?
-
-1. Retry Stage 3 - shell-agent will regenerate APVTS
-2. Check parameter-spec.md - Verify parameter definitions
-3. Manual fix - Edit PluginProcessor.cpp manually then continue
-4. Pause workflow - Save progress and investigate
-
-Choose (1-4): _
-```
+For detailed error patterns, recovery strategies, and reporting format, see [references/error-handling.md](references/error-handling.md).
 
 ---
 

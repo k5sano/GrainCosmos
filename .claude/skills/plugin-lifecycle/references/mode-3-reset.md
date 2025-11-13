@@ -1,9 +1,3 @@
----
-name: reset-to-ideation
-description: Roll back plugin to ideation stage - keep idea/mockups, remove all implementation
-args: "[PluginName]"
----
-
 # /reset-to-ideation - Surgical Rollback
 
 **Purpose:** Reset plugin to just-after-dream-stage, removing all implementation but keeping the idea, mockups, and parameter specs intact.

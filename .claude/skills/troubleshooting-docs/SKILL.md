@@ -40,18 +40,15 @@ This skill captures problem solutions immediately after confirmation, creating s
 
 **OR manual:** `/doc-fix` command
 
-**Non-trivial problems only:**
+**Document when:**
 
 - Multiple investigation attempts needed
-- Tricky debugging that took time
-- Non-obvious solution
-- Future sessions would benefit
+- Non-obvious solution that future sessions would benefit from
+- Tricky debugging or root cause analysis
 
-**Skip documentation for:**
+**Skip when:**
 
-- Simple typos
-- Obvious syntax errors
-- Trivial fixes immediately corrected
+- Single-attempt fixes (typos, syntax errors, obvious mistakes)
 </step>
 
 <step number="2" required="true" depends_on="1">
@@ -59,37 +56,37 @@ This skill captures problem solutions immediately after confirmation, creating s
 
 Extract from conversation history:
 
-**Required information:**
+**Blocking requirements (must have before Step 3):**
 
 - **Plugin name**: Which plugin had the problem
 - **Symptom**: Observable error/behavior (exact error messages)
+- **Stage**: Development stage (0-6 or post-implementation)
+- **Solution**: What fixed it (code/config changes)
+
+**Additional context (gather if available):**
+
 - **Investigation attempts**: What didn't work and why
 - **Root cause**: Technical explanation of actual problem
-- **Solution**: What fixed it (code/config changes)
 - **Prevention**: How to avoid in future
-
-**Environment details:**
-
-- JUCE version
-- Stage (0-6 or post-implementation)
-- OS version
-- File/line references
+- **JUCE version**: Version where issue occurred
+- **OS version**: macOS version
+- **File/line references**: Specific code locations
 
 **BLOCKING REQUIREMENT:** If critical context is missing (plugin name, exact error, stage, or resolution steps), ask user and WAIT for response before proceeding to Step 3:
 
 ```
-I need a few details to document this properly:
+I need details to document this:
 
-1. Which plugin had this issue? [PluginName]
-2. What was the exact error message or symptom?
-3. What stage were you in? (0-6 or post-implementation)
+1. Plugin name?
+2. Exact error message/symptom?
+3. Stage (0-6 or post-implementation)?
 
-[Continue after user provides details]
+[Continue after response]
 ```
 </step>
 
 <step number="3" required="false" depends_on="2">
-### Step 3: Check Existing Docs
+### Step 3: Check Existing Docs (Skip if unique first-time issue)
 
 Search troubleshooting/ for similar issues:
 
@@ -173,7 +170,21 @@ Please provide corrected values.
 <step number="6" required="true" depends_on="5">
 ### Step 6: Create Documentation
 
-**Determine category from problem_type:** Use the category mapping defined in `references/yaml-schema.md` (lines 49-61).
+**Determine category from problem_type:**
+
+| problem_type | Directory |
+|--------------|-----------|
+| build_error | build-failures/ |
+| runtime_error | runtime-issues/ |
+| ui_layout | gui-issues/ |
+| api_misuse | api-usage/ |
+| dsp_issue | dsp-issues/ |
+| state_management | parameter-issues/ |
+| performance | runtime-issues/ |
+| thread_violation | runtime-issues/ |
+| validation_failure | validation-problems/ |
+
+Full schema details: `references/yaml-schema.md`
 
 **Create documentation file:**
 
@@ -197,10 +208,12 @@ mkdir -p "troubleshooting/${CATEGORY}"
 **Create documentation:** Populate the structure from `assets/resolution-template.md` with context gathered in Step 2 and validated YAML frontmatter from Step 5.
 </step>
 
-<step number="7" required="false" depends_on="6">
-### Step 7: Cross-Reference & Critical Pattern Detection
+<step number="7" required="conditional" depends_on="6">
+### Step 7: Cross-Reference & Pattern Detection
 
-If similar issues found in Step 3:
+### Step 7a: Cross-Reference (REQUIRED if similar issues found in Step 3)
+
+**If similar issues were found in Step 3**, add bidirectional cross-references:
 
 **Update existing doc:**
 
@@ -210,11 +223,9 @@ echo "- See also: [$FILENAME]($REAL_FILE)" >> [similar-doc.md]
 ```
 
 **Update new doc:**
-Already includes cross-reference from Step 6.
+Cross-reference already included from Step 6.
 
-**Update patterns if applicable:**
-
-If this represents a common pattern (3+ similar issues):
+**Update patterns if 3+ similar issues:**
 
 ```bash
 # Add to troubleshooting/patterns/common-solutions.md
@@ -233,23 +244,25 @@ cat >> troubleshooting/patterns/common-solutions.md << 'EOF'
 EOF
 ```
 
-**Critical Pattern Detection (Optional Proactive Suggestion):**
+**If no similar issues found in Step 3**, skip to Step 7b.
 
-If this issue has automatic indicators suggesting it might be critical:
+### Step 7b: Critical Pattern Detection (OPTIONAL - System Suggestion)
+
+If automatic indicators suggest this might be a critical pattern:
 - Severity: `critical` in YAML
 - Affects multiple plugins OR foundational stage (Stage 2 or 3)
 - Non-obvious solution
 
-Then in the decision menu (Step 8), add a note:
+Then add suggestion in decision menu (Step 8):
 ```
 💡 This might be worth adding to Required Reading (Option 2)
 ```
 
-But **NEVER auto-promote**. User decides via decision menu (Option 2).
+**User decides via decision menu** - NEVER auto-promote to Required Reading.
 
-**Template for critical pattern addition:**
+**Template for Required Reading addition:**
 
-When user selects Option 2 (Add to Required Reading), use the template from `assets/critical-pattern-template.md` to structure the pattern entry. Number it sequentially based on existing patterns in `troubleshooting/patterns/juce8-critical-patterns.md`.
+When user selects Option 2, use template from `assets/critical-pattern-template.md`. Number sequentially based on existing patterns in `troubleshooting/patterns/juce8-critical-patterns.md`.
 </step>
 
 </critical_sequence>
@@ -298,6 +311,8 @@ Action:
 4. Add cross-reference back to this doc
 5. Confirm: "✓ Added to Required Reading. All subagents will see this pattern before code generation."
 
+**Note**: For direct addition without full documentation workflow, users can use `/add-critical-pattern` command.
+
 **Option 3: Link related issues**
 
 - Prompt: "Which doc to link? (provide filename or describe)"
@@ -331,7 +346,7 @@ Action:
 **Invoked by:**
 - deep-research skill (after solution found)
 - plugin-improve skill (after fix validated)
-- Manual invocation via /doc-fix command
+- /doc-fix command (manual user invocation)
 
 **Invokes:**
 - None (terminal skill - does not delegate to other skills)
@@ -402,84 +417,6 @@ Documentation is successful when ALL of the following are true:
 
 ---
 
-## Quality Guidelines
+## Example Walkthrough
 
-**Good documentation has:**
-
-- ✅ Exact error messages (copy-paste from output)
-- ✅ Specific file:line references
-- ✅ Observable symptoms (what you saw, not interpretations)
-- ✅ Failed attempts documented (helps avoid wrong paths)
-- ✅ Technical explanation (not just "what" but "why")
-- ✅ Code examples (before/after if applicable)
-- ✅ Prevention guidance (how to catch early)
-- ✅ Cross-references (related issues)
-
-**Avoid:**
-
-- ❌ Vague descriptions ("something was wrong")
-- ❌ Missing technical details ("fixed the code")
-- ❌ No context (which version? which file?)
-- ❌ Just code dumps (explain why it works)
-- ❌ No prevention guidance
-- ❌ No cross-references
-
----
-
-## Example Scenario
-
-**User:** "That worked! The parameter is saving correctly now."
-
-**Skill activates:**
-
-1. **Detect confirmation:** "That worked!" triggers auto-invoke
-2. **Gather context:**
-   - Plugin: ReverbPlugin
-   - Symptom: DECAY parameter not persisting after DAW reload
-   - Failed attempts: Checked APVTS creation, verified parameter ID
-   - Solution: Added parameterValueChanged() to update processor state
-   - Root cause: State only saved from APVTS, not reflecting UI changes
-3. **Check existing:** No similar issue found
-4. **Generate filename:** `parameter-not-saving-decay-ReverbPlugin-20251110.md`
-5. **Validate YAML:**
-   ```yaml
-   plugin: ReverbPlugin
-   date: 2025-11-10
-   symptom: DECAY parameter not persisting after DAW reload
-   severity: medium
-   tags: [parameters, runtime]
-   ```
-   ✅ Valid
-6. **Create documentation:**
-   - `troubleshooting/parameter-issues/parameter-not-saving-decay-ReverbPlugin-20251110.md`
-7. **Cross-reference:** None needed (no similar issues)
-
-**Output:**
-
-```
-✓ Solution documented
-
-File created:
-- troubleshooting/parameter-issues/parameter-not-saving-decay-ReverbPlugin-20251110.md
-
-What's next?
-1. Continue workflow (recommended)
-2. Add to Required Reading - Promote to critical patterns (juce8-critical-patterns.md)
-3. Link related issues - Connect to similar problems
-4. Update common patterns - Add to pattern library
-5. View documentation - See what was captured
-6. Other
-```
-
----
-
-## Future Enhancements
-
-**Not in Phase 7 scope, but potential:**
-
-- Search by date range
-- Filter by severity
-- Tag-based search interface
-- Metrics (most common issues, resolution time)
-- Export to shareable format (community knowledge sharing)
-- Import community solutions
+See [references/example-walkthrough.md](references/example-walkthrough.md) for a complete demonstration of the 7-step workflow.
