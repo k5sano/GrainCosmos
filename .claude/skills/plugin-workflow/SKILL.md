@@ -10,7 +10,7 @@ allowed-tools:
 preconditions:
   - architecture.md must exist (from /plan)
   - plan.md must exist (from /plan)
-  - Status must be 🚧 Stage 1 OR resuming from 🚧 Stage 2+
+  - Status must be 🚧 Stage 0 (complete) OR resuming from 🚧 Stage 2+
   - Plugin must NOT be ✅ Working or 📦 Installed (use /improve instead)
 ---
 
@@ -28,7 +28,7 @@ This skill orchestrates plugin implementation stages 2-5. Stages 0-1 (Research &
 - **UI Integrated:** Connect WebView interface to audio engine (gui-agent)
 - **Plugin Complete:** Factory presets, validation, and final polish (direct or validation-agent)
 
-**Internal stage mapping:** Stage 2 → Build System Ready, Stage 3 → Audio Engine Working, Stage 4 → UI Integrated, Stage 5 → Plugin Complete
+**Internal stage mapping:** Stage 0 → Research & Planning Complete, Stage 2 → Build System Ready, Stage 3 → Audio Engine Working, Stage 4 → UI Integrated
 
 <orchestration_rules enforcement_level="STRICT">
   <delegation_rule
@@ -43,7 +43,7 @@ This skill orchestrates plugin implementation stages 2-5. Stages 0-1 (Research &
     **Delegation sequence for every stage 2-5 invocation:**
     1. BEFORE invoking subagent, read contract files:
        - architecture.md (DSP design from Stage 0)
-       - plan.md (implementation strategy from Stage 1)
+       - plan.md (implementation strategy from Stage 0)
        - parameter-spec.md (parameter definitions)
     2. Read Required Reading:
        - troubleshooting/patterns/juce8-critical-patterns.md (MANDATORY)
@@ -147,7 +147,7 @@ Each stage is fully documented in its own reference file in `references/` subdir
     Before starting Stage 2, verify these contract files exist:
 
     <required_file path="plugins/$PLUGIN_NAME/.ideas/architecture.md" created_by="Stage 0" />
-    <required_file path="plugins/$PLUGIN_NAME/.ideas/plan.md" created_by="Stage 1" />
+    <required_file path="plugins/$PLUGIN_NAME/.ideas/plan.md" created_by="Stage 0" />
     <required_file path="plugins/$PLUGIN_NAME/.ideas/creative-brief.md" created_by="ideation" />
     <required_file path="plugins/$PLUGIN_NAME/.ideas/parameter-spec.md" created_by="UI mockup finalization">
       <validation>
@@ -178,10 +178,10 @@ Each stage is fully documented in its own reference file in `references/` subdir
 
       Missing files will be listed here:
       - architecture.md (from Stage 0)
-      - plan.md (from Stage 1)
+      - plan.md (from Stage 0)
       - creative-brief.md (from ideation)
 
-      Run /plan [PluginName] to complete planning stages 0-1."
+      Run /plan [PluginName] to complete Stage 0 (Research & Planning)."
     </on_missing_files>
 
     See [references/precondition-checks.md](references/precondition-checks.md) for bash implementation.
@@ -190,8 +190,8 @@ Each stage is fully documented in its own reference file in `references/` subdir
   <status_verification required="true" blocking="true">
     Read PLUGINS.md and verify status is appropriate:
 
-    <allowed_state status="🚧 Stage 1">
-      OK to proceed (just finished planning)
+    <allowed_state status="🚧 Stage 0">
+      OK to proceed (just finished research & planning)
     </allowed_state>
 
     <allowed_state status="🚧 Stage N" condition="N >= 2">
@@ -621,7 +621,7 @@ runWorkflow(pluginName, resumeStage)
 **Reads (contracts from plugin-planning):**
 
 - `architecture.md` (DSP specification from Stage 0)
-- `plan.md` (implementation strategy from Stage 1)
+- `plan.md` (implementation strategy from Stage 0)
 - `creative-brief.md` (vision from ideation)
 - `parameter-spec.md` (parameter definitions)
 

@@ -1,11 +1,11 @@
 ---
 name: plan
-description: Interactive research and planning for plugin (Stages 0-1)
+description: Interactive research and planning for plugin (Stage 0)
 ---
 
 # /plan
 
-When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle Stages 0-1 (Research and Planning).
+When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle Stage 0 (Research & Planning - consolidated).
 
 <preconditions enforcement="blocking">
   <status_verification target="PLUGINS.md" required="true">
@@ -22,14 +22,10 @@ When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle
         OK to proceed - resume research phase
       </allowed_state>
 
-      <allowed_state status="🚧 Stage 1">
-        OK to proceed - resume planning phase
-      </allowed_state>
-
       <blocked_state status="🚧 Stage N" condition="N >= 2" action="BLOCK_WITH_MESSAGE">
         [PluginName] is already in implementation (Stage [N]).
 
-        Stages 0-1 (planning) are complete. Use:
+        Stage 0 (planning) is complete. Use:
         - /continue [PluginName] - Resume from current stage
         - /implement [PluginName] - Review implementation workflow
       </blocked_state>
@@ -63,7 +59,7 @@ When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle
         1. Verify preconditions (block if failed)
         2. Invoke plugin-planning skill with plugin name
       ELSE:
-        1. List plugins with status: 💡 Ideated, 🚧 Stage 0, 🚧 Stage 1
+        1. List plugins with status: 💡 Ideated, 🚧 Stage 0
         2. Present numbered menu of eligible plugins
         3. Offer to create new plugin via /dream
     </condition>
@@ -71,17 +67,20 @@ When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle
 </behavior>
 
 <delegation>
-  Invoke plugin-planning skill to execute Stages 0-1 (Research and Planning).
+  Invoke plugin-planning skill to execute Stage 0 (Research & Planning - consolidated).
 
   Skill produces:
   - architecture.md (DSP specification)
   - plan.md (implementation strategy with complexity score)
+
+  Both outputs are created in a single pass by research-planning-agent.
 </delegation>
 
 <contract_enforcement>
-  Stage 0 requires creative-brief.md (checked in preconditions above).
+  Stage 0 requires:
+  - creative-brief.md (checked in preconditions above)
+  - parameter-spec.md OR parameter-spec-draft.md (for complexity calculation)
 
-  Stage 1 requires parameter-spec.md and architecture.md.
   If missing, plugin-planning skill will BLOCK with unblock instructions.
 
   Note: Command verifies entry preconditions only. Skill handles stage-specific contract validation.
@@ -89,22 +88,22 @@ When user runs `/plan [PluginName?]`, invoke the plugin-planning skill to handle
 
 ## Handoff to Implementation
 
-After Stage 1 completes, the skill creates handoff state:
+After Stage 0 completes, the skill creates handoff state:
 - .continue-here.md updated with "ready_for_implementation: true"
-- User runs `/implement [PluginName]` to begin Stage 2 (Foundation)
+- User runs `/implement [PluginName]` to begin Stage 2 (Foundation + Shell)
 
 ## Workflow Integration
 
 Complete plugin development flow:
 1. `/dream [PluginName]` - Create creative brief + UI mockup
-2. `/plan [PluginName]` - Research and planning (Stages 0-1)
-3. `/implement [PluginName]` - Build plugin (Stages 2-6)
+2. `/plan [PluginName]` - Research and planning (Stage 0 - consolidated)
+3. `/implement [PluginName]` - Build plugin (Stages 2-4)
 
 ## Output
 
-By completion of planning, you have:
+By completion of Stage 0, you have:
 - ✅ architecture.md (DSP specification)
 - ✅ plan.md (implementation strategy with complexity score)
 - ✅ Updated PLUGINS.md status
-- ✅ Git commits for both stages
+- ✅ Git commit for consolidated stage
 - ✅ Ready for implementation handoff

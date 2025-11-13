@@ -32,7 +32,7 @@ What's next?
 
 User: 1
 
-System: Quick Parameter Capture for Stage 0
+System: Quick Parameter Capture (for Stage 0 planning)
 
 Ready to capture parameters? (y/n): _
 User: y
@@ -78,7 +78,7 @@ User: 3
 User: /plan SimpleComp
 System: [Checks for parameter spec]
 System: ℹ Using draft parameters. Full spec needed before Stage 2.
-System: [Invokes research-agent with draft params]
+System: [Invokes research-planning-agent with draft params]
 System: [Stage 0 completes - creates architecture.md]
 ```
 
@@ -104,7 +104,7 @@ ELSE:
   System: [Generates parameter-spec.md from mockup + draft merge]
 ```
 
-### Phase 4: Merge Point - Stage 1 Planning
+### Phase 4: Merge Point - Stage 0 Planning
 
 ```
 User: /plan SimpleComp
@@ -151,7 +151,7 @@ System: [Proceeds to Stage 2 via foundation-shell-agent]
 - [ ] Warning logged: "Using draft parameters. Full spec needed before Stage 2."
 - [ ] architecture.md created successfully
 
-### Stage 1 Accepts Draft
+### Stage 0 Accepts Draft
 - [ ] plugin-planning uses draft for complexity calculation
 - [ ] plan.md generated with correct complexity score
 - [ ] Warning logged about needing full spec
@@ -172,7 +172,7 @@ System: [Proceeds to Stage 2 via foundation-shell-agent]
 ### Parallel Execution Enabled
 - [ ] Can start Stage 0 immediately after draft captured
 - [ ] UI mockup can proceed independently
-- [ ] Both workflows merge successfully at Stage 1
+- [ ] Both workflows merge successfully at Stage 0
 - [ ] Time saved verified (parallel execution vs. sequential)
 
 ### Backward Compatibility
@@ -193,7 +193,7 @@ parameter-spec.md generated
   ↓
 Stage 0 Research (25 min)
   ↓
-Stage 1 Planning (3 min)
+Stage 0 Planning (3 min)
 
 Total: 51 minutes
 ```
@@ -206,7 +206,7 @@ Quick Param Capture (2 min)
   ↓
   ├─ Stage 0 Research (25 min) ────┐
   └─ UI Mockup (18 min) ────────────┤
-                                     ├→ Stage 1 Planning (3 min)
+                                     ├→ Stage 0 Planning (3 min)
                                     ┘
 
 Total: 33 minutes (18 min saved, 35% reduction)
@@ -217,7 +217,7 @@ Total: 33 minutes (18 min saved, 35% reduction)
 **Success Criteria:**
 1. Quick capture workflow integrated into plugin-ideation (Phase 8.1)
 2. Stage 0 accepts either draft or full parameter spec
-3. Stage 1 accepts either draft or full parameter spec
+3. Stage 0 accepts either draft or full parameter spec
 4. UI mockup validates draft consistency and merges (Phase 10)
 5. Stage 2 blocks until full spec available
 6. Parallel execution demonstrably works (both workflows proceed simultaneously)

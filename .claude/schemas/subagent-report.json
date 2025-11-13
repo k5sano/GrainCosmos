@@ -8,7 +8,7 @@
   "properties": {
     "agent": {
       "type": "string",
-      "enum": ["foundation-shell-agent", "dsp-agent", "gui-agent"],
+      "enum": ["research-planning-agent", "foundation-shell-agent", "dsp-agent", "gui-agent"],
       "description": "Which subagent generated this report"
     },
     "status": {

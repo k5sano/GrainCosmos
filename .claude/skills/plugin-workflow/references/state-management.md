@@ -248,7 +248,7 @@ fi
 
 **Legal transitions for plugin-workflow:**
 ```
-🚧 Stage 1 → 🚧 Stage 2 (start implementation after planning)
+🚧 Stage 0 → 🚧 Stage 2 (start implementation after planning)
 🚧 Stage N → 🚧 Stage N+1 (sequential stages 2-6)
 🚧 Stage N → 🚧 Stage N.M (enter phased implementation)
 🚧 Stage N.M → 🚧 Stage N.M+1 (next phase within stage)
@@ -502,8 +502,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - If commit fails → Rollback ALL state changes to maintain consistency
 
 **Commit variations by stage:**
-- Stage 0: `feat: [Plugin] research complete` (internal)
-- Stage 1: `feat: [Plugin] planning complete` (internal)
+- Stage 0: `feat: [Plugin] research & planning complete`
 - Stage 2: `feat: [Plugin] build system ready`
 - Stage 3: `feat: [Plugin] audio engine working`
 - Stage 3.1: `feat: [Plugin] audio phase 3.1 - core processing`
@@ -560,8 +559,8 @@ Call at beginning of Stage 0.
    - phase: null (only for complex plugins)
    - status: "in_progress"
    - last_updated: [current timestamp]
-   - complexity_score: null (filled in Stage 1)
-   - phased_implementation: null (filled in Stage 1)
+   - complexity_score: null (filled in Stage 0)
+   - phased_implementation: null (filled in Stage 0)
    - orchestration_mode: true (enable dispatcher pattern)
    - next_action: null (filled when stage/phase completes)
    - next_phase: null (filled for phased implementations)
@@ -770,7 +769,7 @@ exit 0
 6. **Orchestrator WAITS for user response** - NEVER auto-continue
 7. Orchestrator executes user choice
 
-**Note:** Stages 0-1 checkpoints are managed by plugin-planning skill.
+**Note:** Stage 0 checkpoints are managed by plugin-planning skill.
 
 ### Soft Checkpoints (can auto-continue with user permission)
 

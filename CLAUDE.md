@@ -43,7 +43,7 @@ When these terms appear in the system, the plain-language equivalent will be sho
   - verify-backup.sh - Backup integrity verification (Phase 7)
 - **Skills**: `.claude/skills/` - Each skill follows Anthropic's pattern with `SKILL.md`, `references/`, and `assets/` subdirectories
   - plugin-workflow, plugin-ideation, plugin-improve (enhanced with regression testing), ui-mockup, context-resume, plugin-testing, plugin-lifecycle, build-automation, troubleshooting-docs, deep-research, design-sync, system-setup, workflow-reconciliation
-- **Subagents**: `.claude/agents/` - foundation-shell-agent, dsp-agent, gui-agent, validation-agent, troubleshoot-agent
+- **Subagents**: `.claude/agents/` - research-planning-agent, foundation-shell-agent, dsp-agent, gui-agent, validation-agent, troubleshoot-agent
 - **Commands**: `.claude/commands/` - /setup, /dream, /implement, /improve, /continue, /test, /install-plugin, /uninstall, /show-standalone, /doc-fix, /research, /sync-design
 - **Hooks**: `.claude/hooks/` - Validation gates (PostToolUse, SubagentStop, UserPromptSubmit, Stop, PreCompact, SessionStart)
 - **Knowledge Base**: `troubleshooting/` - Dual-indexed (by-plugin + by-symptom) problem solutions
@@ -57,7 +57,7 @@ When these terms appear in the system, the plain-language equivalent will be sho
 ## Key Principles
 
 1. **Contracts are immutable during implementation** - All stages reference the same specs (zero drift)
-   - Technical enforcement via PostToolUse hook (blocks Edit/Write to contract files during Stages 2-5)
+   - Technical enforcement via PostToolUse hook (blocks Edit/Write to contract files during Stages 2-4)
    - Checksum validation in SubagentStop hook (detects unauthorized modifications)
    - Cross-contract consistency validation (parameter counts, DSP components, complexity scores)
 2. **Dispatcher pattern** - Each subagent runs in fresh context (no accumulation)
@@ -75,21 +75,21 @@ The system prevents late-stage failures through multi-layer validation:
 - Reports critical errors with actionable fix commands
 - Prevents 10+ minutes of work before discovering missing dependencies
 
-**Stage 1→2 Transition (design-sync gate):**
+**Stage 0→2 Transition (design-sync gate):**
 - MANDATORY validation of mockup ↔ creative brief alignment
 - Catches design drift before Stage 2 generates boilerplate
 - Blocks implementation if contracts misaligned (missing features, scope creep, style mismatch)
 
 **During Implementation (PostToolUse hook):**
-- Contract immutability enforcement (blocks modifications to .ideas/*.md during Stages 2-5)
+- Contract immutability enforcement (blocks modifications to .ideas/*.md during Stages 2-4)
 - Real-time safety checks (processBlock validation)
 - Silent failure pattern detection (12+ known patterns from juce8-critical-patterns.md)
 - Blocks commits with patterns that compile but fail at runtime
 
 **After Subagent Completion (SubagentStop hook):**
-- Contract checksum validation (verifies contracts unchanged during Stages 2-5)
+- Contract checksum validation (verifies contracts unchanged during Stages 2-4)
 - Cross-contract consistency checks (parameter counts, DSP components, references)
-- Stage-specific deterministic validation (foundation, parameters, DSP, GUI)
+- Stage-specific deterministic validation (foundation-shell, DSP, GUI)
 
 **Checkpoint Completion (plugin-workflow):**
 - Verifies all checkpoint steps succeeded before presenting decision menu
@@ -133,13 +133,14 @@ Do NOT use AskUserQuestion tool for decision menus - use inline numbered lists a
 
 ## Subagent Invocation Protocol
 
-Stages 2-4 use the dispatcher pattern:
+All implementation stages use the dispatcher pattern:
 
-- Stage 2 → You **must** invoke foundation-shell-agent via Task tool
-- Stage 3 → You **must** invoke dsp-agent via Task tool
-- Stage 4 → You **must** invoke gui-agent via Task tool
+- Stage 0 → You **must** invoke research-planning-agent via Task tool (plugin-planning skill)
+- Stage 2 → You **must** invoke foundation-shell-agent via Task tool (plugin-workflow skill)
+- Stage 3 → You **must** invoke dsp-agent via Task tool (plugin-workflow skill)
+- Stage 4 → You **must** invoke gui-agent via Task tool (plugin-workflow skill)
 
-The plugin-workflow skill orchestrates, it does **not** implement.
+The orchestrating skills delegate to subagents, they do **not** implement directly.
 
 After subagent completes:
 
@@ -191,7 +192,7 @@ This ensures consistent checkpoint behavior and clean separation of concerns.
 **Lifecycle:**
 
 - `/dream` - Ideate new plugin concept
-- `/implement [Name]` - Build plugin through 6-stage workflow
+- `/implement [Name]` - Build plugin through 5-stage workflow (0, 2-4)
 - `/continue [Name]` - Resume paused workflow
 - `/improve [Name]` - Fix bugs or add features (with regression testing)
 - `/reconcile [Name]` - Reconcile state between planning and implementation

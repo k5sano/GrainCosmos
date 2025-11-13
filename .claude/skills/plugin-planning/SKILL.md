@@ -1,6 +1,6 @@
 ---
 name: plugin-planning
-description: Interactive research and planning (Stages 0-1) for JUCE plugin development. Invoke via /plan command after creative-brief.md exists or as first step of /implement workflow.
+description: Stage 0 (Research & Planning) for JUCE plugin development. Invoke via /plan command after creative-brief.md exists or as first step of /implement workflow.
 allowed-tools:
   - Read # For contracts and references
   - Write # For architecture.md, plan.md
@@ -11,14 +11,14 @@ allowed-tools:
   - Glob # For finding reference files
 preconditions:
   - creative-brief.md must exist in plugins/[Name]/.ideas/
-  - Plugin must NOT already be past Stage 1
+  - Plugin must NOT already be past Stage 0
 ---
 
 # plugin-planning Skill
 
-**Purpose:** Handle Stages 0-1 (Research and Planning) through interactive contract creation without subagents. This skill creates the foundation contracts (architecture.md, plan.md) that guide implementation.
+**Purpose:** Handle Stage 0 (Research & Planning - consolidated) through subagent delegation. This skill creates the foundation contracts (architecture.md, plan.md) that guide implementation in a single consolidated pass.
 
-**Invoked by:** `/plan` command (to be created) or as first step of `/implement` workflow
+**Invoked by:** `/plan` command or as first step of `/implement` workflow
 
 ---
 
@@ -28,18 +28,18 @@ preconditions:
 
 Quick validation:
 1. creative-brief.md must exist at `plugins/[Name]/.ideas/`
-2. Plugin status must be ≤ Stage 1 (not already in implementation)
+2. Plugin status must be ≤ Stage 0 (not already in implementation)
 3. Detect existing contracts (architecture.md, plan.md) for resume logic
 
-If all preconditions pass → proceed to Stage 0 or Stage 1 based on resume logic
+If all preconditions pass → proceed to Stage 0
 
 ---
 
-## Stage 0: Research
+## Stage 0: Research & Planning
 
-**Goal:** Create DSP architecture specification (architecture.md)
-**Duration:** 5-30 minutes (complexity-dependent)
-**Implementation:** Delegated to research-agent subagent via Task tool
+**Goal:** Create DSP architecture specification (architecture.md) AND implementation plan (plan.md)
+**Duration:** 5-35 minutes (complexity-dependent)
+**Implementation:** Delegated to research-planning-agent subagent via Task tool
 
 <preconditions>
   <parameter_specification required="true">
@@ -74,54 +74,73 @@ If all preconditions pass → proceed to Stage 0 or Stage 1 based on resume logi
 
 2. Construct prompt with contracts prepended:
    ```
-   You are research-agent. Execute Stage 0 research for [PluginName].
+   You are research-planning-agent. Execute Stage 0 (Research & Planning) for [PluginName].
 
    Creative brief:
    [content of creative-brief.md]
+
+   Parameters:
+   [content of parameter-spec.md or parameter-spec-draft.md]
 
    [If mockup exists:]
    UI mockup:
    [content of mockup file]
 
-   Execute the full Stage 0 research protocol:
+   Execute the full Stage 0 protocol:
+
+   PART 1 - Research:
    1. Complexity detection (Tier 1-6)
    2. Feature identification (meta-research)
    3. Per-feature deep research (algorithmic understanding, professional research, JUCE API mapping, validation)
    4. Integration analysis
    5. Create architecture.md from template
-   6. Update state files and commit
 
-   Return JSON report with architecture.md location and status.
+   PART 2 - Planning:
+   1. Calculate complexity score from parameters and architecture
+   2. Determine implementation strategy (single-pass or phased)
+   3. Create phase breakdown if complex (score ≥ 3.0)
+   4. Generate plan.md from template
+
+   Update state files and commit both architecture.md and plan.md.
+   Return JSON report with both file locations and status.
    ```
 
 3. Invoke subagent:
    ```
-   Task(subagent_type="research-agent", description="[prompt with contracts]", model="sonnet")
+   Task(subagent_type="research-planning-agent", description="[prompt with contracts]", model="sonnet")
    ```
 
 4. AFTER subagent returns, execute checkpoint protocol:
    - Read subagent's JSON report
    - Verify architecture.md created and contains all required sections
+   - Verify plan.md created with complexity score and strategy
    - Present decision menu (see [references/state-updates.md](references/state-updates.md))
    - WAIT for user response
 
-**Subagent executes:** Full research protocol from references/stage-0-research.md
+**Subagent executes:** Full protocol from research-planning-agent.md
 - Complexity detection (Tier 1-6) with extended thinking
 - Per-feature deep research (algorithmic understanding, professional research, JUCE API mapping, validation)
 - Integration analysis (dependencies, interactions, processing order, threads)
 - architecture.md generation from assets/architecture-template.md
+- Complexity score calculation from parameters and architecture
+- Implementation strategy determination
+- plan.md generation from assets/plan-template.md
 - State updates (.continue-here.md, PLUGINS.md, git commit)
 
-**Output:** `plugins/[Name]/.ideas/architecture.md` (see assets/architecture-template.md)
+**Outputs:**
+- `plugins/[Name]/.ideas/architecture.md` (see assets/architecture-template.md)
+- `plugins/[Name]/.ideas/plan.md` (see assets/plan-template.md)
 
 **Decision menu after subagent completes:**
 
 ```
-✓ Stage 0 complete: DSP architecture documented
+✓ Stage 0 complete: Research & Planning finished
+   Architecture documented, complexity assessed ([X.X])
+   Strategy: [Single-pass | Phased implementation]
 
 What's next?
-1. Continue to Stage 1 - Planning (recommended)
-2. Review architecture.md findings
+1. Start implementation - Begin Stage 2 (Foundation + Shell) (recommended)
+2. Review contracts (architecture.md, plan.md)
 3. Improve creative brief based on research
 4. Run deeper JUCE investigation (deep-research skill) ← Discover troubleshooting
 5. Pause here
@@ -130,89 +149,17 @@ What's next?
 Choose (1-6): _
 ```
 
-**Note:** research-agent runs in fresh context (5-30 min research doesn't pollute orchestrator)
+**Note:** research-planning-agent runs in fresh context (5-35 min session doesn't pollute orchestrator)
 
-**VALIDATION GATE: Before proceeding to Stage 1:**
+**VALIDATION GATE: Before proceeding to Stage 2:**
 
 1. Verify: architecture.md exists and is not empty
 2. Verify: architecture.md contains all required sections (Core Components, Processing Chain, Parameter Mapping)
-3. If any verification fails:
-   - Display error: "Stage 0 incomplete - architecture.md missing or invalid"
+3. Verify: plan.md exists with complexity score and implementation strategy
+4. If any verification fails:
+   - Display error: "Stage 0 incomplete - architecture.md or plan.md missing/invalid"
    - Return to Stage 0
-4. Only proceed when all verifications pass
-
----
-
-## Stage 1: Planning
-
-**Goal:** Calculate complexity score and create implementation plan (plan.md)
-**Duration:** 2-5 minutes
-
-**Preconditions:** (parameter-spec.md OR parameter-spec-draft.md) AND architecture.md must exist (BLOCKING)
-
-<preconditions>
-  <parameter_specification required="true">
-    Stage 1 requires parameter definitions for complexity calculation.
-
-    Accept EITHER:
-    - parameter-spec.md (full specification from finalized mockup)
-    - parameter-spec-draft.md (minimal specification from ideation)
-
-    <check>
-      IF parameter-spec.md exists:
-        Use full specification (preferred)
-        LOG: "Using full parameter specification"
-      ELSE IF parameter-spec-draft.md exists:
-        Use draft specification (sufficient for Stage 1 planning)
-        LOG: "Using draft parameters for planning. Full spec needed before Stage 2."
-      ELSE:
-        BLOCK with error: "No parameter specification found for complexity calculation"
-    </check>
-  </parameter_specification>
-
-  <architecture_specification required="true">
-    Stage 1 requires architecture.md from Stage 0 research.
-
-    <check>
-      IF architecture.md exists:
-        Use for algorithm count in complexity score
-      ELSE:
-        BLOCK with error: "Missing architecture.md. Run Stage 0 first (/plan [PluginName])"
-    </check>
-  </parameter_specification>
-</preconditions>
-
-**Process:**
-
-1. Read contracts (parameter-spec.md, architecture.md)
-2. Calculate complexity score: `min(param_count/5, 2.0) + algorithm_count + feature_count`
-3. Determine strategy: Simple (≤2.0) = single-pass, Complex (≥3.0) = phased
-4. Create phase breakdown if complex
-5. Generate plan.md from template
-
-**For detailed complexity calculation and phase breakdown:** See [references/stage-1-planning.md](references/stage-1-planning.md)
-
-**Workflow Checklist** - Copy and track progress:
-
-```
-Stage 1 Progress:
-- [ ] Verify contracts exist (parameter-spec.md, architecture.md)
-- [ ] Read all contracts
-- [ ] Calculate complexity score
-- [ ] Determine implementation strategy
-- [ ] Create phase breakdown (if complex)
-- [ ] Generate plan.md from template
-- [ ] Update .continue-here.md
-- [ ] Update PLUGINS.md status
-- [ ] Git commit changes
-- [ ] Present decision menu
-```
-
-**Output:** `plugins/[Name]/.ideas/plan.md` (see assets/plan-template.md)
-
-**State management:** Update .continue-here.md, PLUGINS.md status, git commit (see [references/git-operations.md](references/git-operations.md))
-
-**Decision menu:** Present menu from assets/decision-menu-stage-1.md, WAIT for user response
+5. Only proceed when all verifications pass
 
 ---
 
@@ -220,40 +167,23 @@ Stage 1 Progress:
 
 <handoff_protocol id="planning-to-implementation">
 <state_requirement>
-CRITICAL: Handoff file must be updated to Stage 2. Execute steps EXACTLY in sequence.
+CRITICAL: Handoff file is already updated to Stage 0 complete by research-planning-agent. Verify state before proceeding to Stage 2.
 </state_requirement>
 
 **When user chooses to proceed to Stage 2:**
 
-<critical_sequence>
-1. Update handoff file at plugin root:
-```bash
-# Update existing plugins/${PLUGIN_NAME}/.continue-here.md for Stage 2
-# Use template from assets/implementation-handoff-template.md
-cat > plugins/${PLUGIN_NAME}/.continue-here.md <<'EOF'
-[template content from assets/implementation-handoff-template.md]
-EOF
-```
-
-2. Verify handoff:
-```bash
-test -f "plugins/${PLUGIN_NAME}/.continue-here.md" || { echo "✗ Handoff not created"; exit 1; }
-echo "✓ Handoff verified"
-```
-</critical_sequence>
-
 <verification_step>
-After handoff, verify:
-- plugins/[PluginName]/.continue-here.md exists at root
-- PLUGINS.md status updated to 🚧 Stage 2
+Before handoff, verify:
+- plugins/[PluginName]/.continue-here.md exists with stage: 0, status: complete
+- PLUGINS.md shows 🚧 Stage 0
+- Both architecture.md and plan.md exist
 </verification_step>
-</handoff_protocol>
 
 Display to user:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✓ Planning Complete
+✓ Stage 0 Complete: Research & Planning
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Plugin: [PluginName]
@@ -268,15 +198,19 @@ Contracts created:
 
 Ready to build. Run: /implement [PluginName]
 ```
+</handoff_protocol>
 
 ---
 
 ## Reference Files
 
-Detailed stage implementations are in:
-- `references/stage-0-research.md` - Research stage details
-- `references/stage-1-planning.md` - Planning stage details
+Detailed protocol is in:
+- Research-planning-agent.md - Complete Stage 0 research and planning protocol
 
 Templates are in:
 - `assets/architecture-template.md` - DSP architecture contract template
 - `assets/plan-template.md` - Implementation plan template
+
+Legacy references (for understanding prior workflow):
+- `references/stage-0-research.md` - Original research protocol
+- `references/stage-1-planning.md` - Original planning protocol

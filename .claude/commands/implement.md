@@ -1,27 +1,27 @@
 ---
 name: implement
-description: Build plugin through implementation stages 2-6
+description: Build plugin through implementation stages 2-4
 argument-hint: [PluginName?]
 allowed-tools: Bash(test:*)
 ---
 
 # /implement
 
-When user runs `/implement [PluginName?]`, invoke the plugin-workflow skill to build the plugin (stages 2-6 only).
+When user runs `/implement [PluginName?]`, invoke the plugin-workflow skill to build the plugin (stages 2-4 only).
 
 <prerequisite>
-  Planning (stages 0-1) must be completed first via `/plan` command.
+  Planning (Stage 0) must be completed first via `/plan` command.
 </prerequisite>
 
 ## Preconditions
 
 <preconditions enforcement="blocking">
   <decision_gate type="status_verification" source="PLUGINS.md">
-    <allowed_state status="🚧 Stage 1" description="Planning complete">
+    <allowed_state status="🚧 Stage 0" description="Planning complete">
       Start implementation at Stage 2
     </allowed_state>
 
-    <allowed_state status="🚧 Stage 2-6" description="In progress">
+    <allowed_state status="🚧 Stage 2-4" description="In progress">
       Resume implementation at current stage
     </allowed_state>
 
@@ -29,23 +29,11 @@ When user runs `/implement [PluginName?]`, invoke the plugin-workflow skill to b
       <error_message>
         [PluginName] planning is not complete.
 
-        Run /plan [PluginName] first to complete stages 0-1:
-        - Stage 0: Research → architecture.md
-        - Stage 1: Planning → plan.md
+        Run /plan [PluginName] first to complete Stage 0 (Research & Planning):
+        - Creates architecture.md (DSP specification)
+        - Creates plan.md (implementation strategy)
 
-        Then run /implement to build (stages 2-6).
-      </error_message>
-    </blocked_state>
-
-    <blocked_state status="🚧 Stage 0" action="redirect">
-      <error_message>
-        [PluginName] planning is not complete.
-
-        Run /plan [PluginName] first to complete stages 0-1:
-        - Stage 0: Research → architecture.md
-        - Stage 1: Planning → plan.md
-
-        Then run /implement to build (stages 2-6).
+        Then run /implement to build (stages 2-4).
       </error_message>
     </blocked_state>
 
