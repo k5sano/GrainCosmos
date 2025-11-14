@@ -1,5 +1,4 @@
 # Scatter - Creative Brief
-
 ## Overview
 
 **Type:** Effect
@@ -13,30 +12,26 @@ Scatter is a granular delay effect that transforms incoming audio into evolving,
 
 The plugin draws inspiration from granular processors like GrainScanner and Portal, ambient effects like Cosmos and Shimmer, and reverse delays like Backmask and H-Delay. It's designed for textural ambience—creating evolving soundscapes and atmospheric beds that transform source material into abstract, musical textures.
 
-## Parameters
-
-| Parameter | Range | Default | Description |
-|-----------|-------|---------|-------------|
-| Delay Time | 100ms-2s (synced) | 500ms (1/4 note) | Buffer length for grain capture, tempo-synced to note values |
-| Grain Size | 5-500ms | 100ms | Length of individual grains |
-| Grain Density | 0-100% | 50% | Overlap amount between grains (0%=sparse, 100%=dense clouds) |
-| Pitch Random | 0-100% | 30% | Amount of pitch randomization applied to grains (±7 semitones max) |
-| Scale | Chromatic/Major/Minor/etc | Chromatic | Musical scale for quantizing randomized pitches |
-| Root Note | C-B | C | Root note for scale quantization |
-| Pan Random | 0-100% | 75% | Amount of stereo randomization (0%=mono, 100%=full random spread) |
-| Feedback | 0-100% | 30% | Traditional delay feedback amount |
-| Mix | 0-100% | 50% | Dry/wet signal blend |
-
 ## UI Concept
 
-**Layout:** Single-page interface with logical parameter grouping
-**Visual Style:** Particle-based visualization showing grains scattering across time and space
-**Key Elements:**
-- Central grain cloud visualization (shows grain position in time/stereo/pitch space)
-- Tempo sync indicator for delay time
-- Scale/root note selector (dropdown or keyboard visualization)
-- Visual feedback for grain density and randomization amounts
+**Layout:** Centered cluster arrangement with controls surrounding a central particle field visualization
 
+**Visual Style:** Cream, spacey, textured skeuomorphic design with warm ethereal mood
+
+**Key Elements:**
+- Central 200×200px particle field visualization (animated grain cloud showing stereo/time/pitch positions)
+- 7 large knobs (90px diameter) with 3D shadows and gradients arranged in cluster around particle field
+- 2 combo boxes (Scale, Root Note) in header
+- Textured background with grain/noise overlay
+- Cosmic glow effects on particle visualization
+
+**Color Scheme:**
+- Warm cream base (#f5f0e8) with sand textures (#e8dfd0)
+- Warm gold accents (#b8956f) for highlights
+- Soft gold particle glow (#ffd89b) with brighter centers (#ffb347)
+- Warm dark brown text (#5a4a3a)
+
+**Dimensions:** 550×600px (non-resizable)
 ## Use Cases
 
 - Creating evolving soundscapes and atmospheric beds from melodic loops or pads
@@ -71,5 +66,7 @@ The plugin draws inspiration from granular processors like GrainScanner and Port
 
 ## Next Steps
 
-- [ ] Create UI mockup (`/dream Scatter` → option 3)
-- [ ] Start implementation (`/implement Scatter`)
+- [ ] Complete mockup finalization
+- [ ] Run /implement to begin Stage 1 (Foundation)
+- [ ] Proceed through workflow stages
+- [ ] Test and validate plugin
