@@ -57,7 +57,37 @@ ELSE IF status is 💡 Ideated or not found:
 - 🚧 Stage 1 or higher
 - ✅ Complete
 
-### Check 3: Existing Contract Detection
+### Check 3: Parameter Specification Exists
+
+**Requirement:** Stage 0 requires parameter definitions to research DSP architecture.
+
+**Accept EITHER:**
+- parameter-spec.md (full specification from finalized mockup)
+- parameter-spec-draft.md (minimal specification from ideation)
+
+```bash
+if [ -f "plugins/${PLUGIN_NAME}/.ideas/parameter-spec.md" ]; then
+    echo "✓ Using full parameter specification (preferred)"
+    PARAM_FILE="parameter-spec.md"
+elif [ -f "plugins/${PLUGIN_NAME}/.ideas/parameter-spec-draft.md" ]; then
+    echo "✓ Using draft parameters (full spec needed before Stage 1)"
+    PARAM_FILE="parameter-spec-draft.md"
+else
+    echo "✗ No parameter specification found - SKILL BLOCKED"
+    echo "Either:"
+    echo "  1. Run quick parameter capture (/dream → option 1)"
+    echo "  2. Create UI mockup first (/dream → option 2)"
+    echo "  3. Manually create parameter-spec.md or parameter-spec-draft.md"
+    exit 1
+fi
+```
+
+**Stage 0 vs Stage 1 requirements:**
+- **Stage 0 (Planning):** Accepts parameter-spec-draft.md for architecture planning
+- **Stage 1 (Foundation):** Requires full parameter-spec.md
+- **Critical:** If draft used, mockup finalization must occur before Stage 1
+
+### Check 4: Existing Contract Detection
 
 ```bash
 # Check what already exists
@@ -90,8 +120,9 @@ SKILL.md should reference this file for detailed validation logic:
 ```markdown
 **Check preconditions first:** See [references/preconditions.md](references/preconditions.md) for detailed validation logic.
 
-Quick check:
-1. creative-brief.md must exist
-2. Plugin must NOT be past Stage 1
-3. Detect existing contracts for resume logic
+Quick validation:
+1. creative-brief.md must exist at plugins/[Name]/.ideas/
+2. Parameter specification required (parameter-spec.md OR parameter-spec-draft.md)
+3. Plugin status must be ≤ Stage 0 (not already in implementation)
+4. Detect existing contracts (architecture.md, plan.md) for resume logic
 ```

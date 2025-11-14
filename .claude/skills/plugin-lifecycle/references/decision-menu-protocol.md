@@ -1,22 +1,29 @@
 # Decision Menu Protocol
 
-After successful lifecycle operations (install, uninstall, reset, destroy), present a numbered decision menu to the user and wait for response. This is a checkpoint gate - do not auto-proceed.
+After successful lifecycle operations (install, uninstall, reset, destroy), check workflow mode first, then optionally present a numbered decision menu.
 
-## When to Present
+## When to Check Workflow Mode
 
-Present this menu immediately after:
+Check workflow mode before presenting menu:
 - Mode 1 (Installation) completes successfully
 - Mode 2 (Uninstallation) completes successfully
 - Mode 3 (Reset to Ideation) completes successfully
 - Mode 4 (Destroy) completes with backup created
 
-## Protocol Steps
+**Workflow Mode Detection:**
+1. Read `.claude/preferences.json` for `workflow.mode` value
+2. If "express": Skip menu, return control immediately
+3. If "manual" (or missing): Present decision menu below
+
+## Protocol Steps (Manual Mode Only)
 
 1. Display completion statement with checkmark
-2. Present numbered menu (5 options)
+2. Present numbered menu using inline numbered list format (see below)
 3. STOP execution and wait for user choice
 4. Do NOT auto-proceed or make assumptions
 5. Only continue after receiving user selection (1-5)
+
+**IMPORTANT:** Present this menu using inline numbered list format. DO NOT use AskUserQuestion tool. Wait for user to type their choice in the conversation.
 
 ## Menu Format
 

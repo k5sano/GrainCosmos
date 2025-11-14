@@ -76,13 +76,38 @@ if [ "$STATUS" = "🚧" ]; then
 fi
 ```
 
-### 3. Gather Information
+### 3. Validate Contract Integrity
+
+Before creating backup, verify critical files exist:
+
+```bash
+SOURCE_DIR="plugins/$PLUGIN_NAME"
+MISSING_FILES=()
+
+# Check for critical contract files
+[ ! -f "$SOURCE_DIR/CMakeLists.txt" ] && MISSING_FILES+=("CMakeLists.txt")
+[ ! -f "$SOURCE_DIR/.ideas/creative-brief.md" ] && MISSING_FILES+=(".ideas/creative-brief.md")
+[ ! -d "$SOURCE_DIR/Source" ] && MISSING_FILES+=("Source/")
+
+if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+  echo "⚠️  WARNING: Plugin is in partial state"
+  echo "Missing critical files:"
+  for file in "${MISSING_FILES[@]}"; do
+    echo "  - $file"
+  done
+  echo ""
+  echo "Backup will be incomplete. Continue anyway? (y/N): "
+  read CONTINUE
+  [ "$CONTINUE" != "y" ] && exit 1
+fi
+```
+
+### 4. Gather Information
 
 ```bash
 # Find all components
-SOURCE_DIR="plugins/$PLUGIN_NAME"
 BUILD_DIR="build/plugins/$PLUGIN_NAME"
-PRODUCT_NAME=$(grep "PRODUCT_NAME" $SOURCE_DIR/CMakeLists.txt | sed 's/.*"\(.*\)".*/\1/')
+PRODUCT_NAME=$(grep "PRODUCT_NAME" $SOURCE_DIR/CMakeLists.txt | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || echo "$PLUGIN_NAME")
 
 VST3_PATH="$HOME/Library/Audio/Plug-Ins/VST3/${PRODUCT_NAME}.vst3"
 AU_PATH="$HOME/Library/Audio/Plug-Ins/Components/${PRODUCT_NAME}.component"
@@ -94,11 +119,11 @@ VST3_SIZE=$(du -sh "$VST3_PATH" 2>/dev/null | awk '{print $1}')
 AU_SIZE=$(du -sh "$AU_PATH" 2>/dev/null | awk '{print $1}')
 ```
 
-### 4. Present Confirmation Prompt
+### 5. Present Confirmation Prompt
 
 Show sizes, list what will be deleted, require exact name match.
 
-### 5. Create Backup
+### 6. Create Backup
 
 ```bash
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -126,7 +151,7 @@ else
 fi
 ```
 
-### 6. Remove Installed Binaries
+### 7. Remove Installed Binaries
 
 ```bash
 # Uninstall if installed
@@ -143,7 +168,7 @@ if [ -d "$VST3_PATH" ] || [ -f "$AU_PATH" ]; then
 fi
 ```
 
-### 7. Remove Build Artifacts
+### 8. Remove Build Artifacts
 
 ```bash
 if [ -d "$BUILD_DIR" ]; then
@@ -152,7 +177,7 @@ if [ -d "$BUILD_DIR" ]; then
 fi
 ```
 
-### 8. Remove Source Code
+### 9. Remove Source Code
 
 ```bash
 if [ -d "$SOURCE_DIR" ]; then
@@ -161,7 +186,7 @@ if [ -d "$SOURCE_DIR" ]; then
 fi
 ```
 
-### 9. Remove PLUGINS.md Entry
+### 10. Remove PLUGINS.md Entry
 
 ```bash
 # Delete entry (from ### PluginName to next ### or EOF)
@@ -171,7 +196,7 @@ mv PLUGINS.md.tmp PLUGINS.md
 echo "✓ PLUGINS.md entry removed"
 ```
 
-### 10. Optional: Clean Troubleshooting Docs
+### 11. Optional: Clean Troubleshooting Docs
 
 ```bash
 # Find docs mentioning this plugin
@@ -195,7 +220,7 @@ if [ -n "$DOCS" ]; then
 fi
 ```
 
-### 11. Success Report
+### 12. Success Report
 
 ```
 ✓ [PluginName] DESTROYED

@@ -167,322 +167,16 @@ Choose (1-3): _
 
 **Purpose:** Detect headless plugins and offer "Create custom UI" option before proceeding to normal improvement flow.
 
-**Detection logic:**
-
-```typescript
-function detectHeadlessPlugin(pluginName: string): boolean {
-  // Read .continue-here.md
-  const handoffPath = `plugins/${pluginName}/.continue-here.md`;
-  const handoffContent = readFile(handoffPath);
-
-  // Check for gui_type field
-  if (handoffContent.includes("gui_type: headless")) {
-    return true;
-  }
-
-  // Fallback: Check if WebView UI files exist
-  const webviewPath = `plugins/${pluginName}/Source/ui/public/index.html`;
-  if (!fileExists(webviewPath)) {
-    return true;
-  }
-
-  return false;
-}
-```
-
-**If headless detected:**
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Headless Plugin Detected
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[PluginName] is currently headless (no custom UI).
-
-What would you like to do?
-
-1. Create custom UI - Design WebView interface (becomes v1.1.0)
-2. Keep headless and make other changes - Parameter tweaks, DSP fixes, etc.
-3. Show me what headless means - Explain DAW controls
-4. Other
-
-Choose (1-4): _
-```
-
-**Handle responses:**
-
-- **Option 1:** Invoke `handleCreateCustomUi(pluginName)` (see below)
-- **Option 2:** Proceed to Phase 0.3 (normal /improve flow)
-- **Option 3:** Display headless explanation, then re-present menu
-- **Option 4:** Collect free-form text, reassess
-
-**Option 3 - Headless explanation:**
-
-```
-Headless Plugin Explanation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-A "headless" plugin has no custom UI. Instead:
-
-✓ DAW provides generic controls automatically:
-  - Sliders for float parameters
-  - Checkboxes for bool parameters
-  - Dropdowns for choice parameters
-
-✓ All parameters are exposed for automation
-
-✓ Fully functional for mixing and production
-
-✓ Smaller binary size (no WebView overhead)
-
-Headless is ideal for:
-- Utility plugins (gain, filters, limiters)
-- Quick prototyping and testing
-- Plugins where visual design isn't critical
-
-You can add custom UI anytime via /improve [PluginName] → Create custom UI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Press Enter to return to menu...
-```
-
-**Helper function: handleCreateCustomUi(pluginName)**
-
-```typescript
-function handleCreateCustomUi(pluginName: string) {
-  console.log(`
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Creating Custom UI for ${pluginName}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-This will upgrade ${pluginName} from headless to WebView UI.
-
-Steps:
-1. Design UI mockup (iterative, can refine)
-2. Generate WebView integration code
-3. Update version to v1.1.0 (minor version bump - new feature)
-4. Build, test, and install
-
-This will NOT break existing automation or presets.
-
-Ready to proceed?
-
-1. Yes, create UI - Start ui-mockup workflow
-2. No, go back - Return to /improve menu
-3. Learn more - What is WebView UI?
-4. Other
-
-Choose (1-4): _
-  `);
-
-  const choice = getUserInput();
-
-  if (choice === "1") {
-    // Invoke ui-mockup skill
-    console.log("\n━━━ Invoking ui-mockup skill ━━━\n");
-
-    Skill({ skill: "ui-mockup" });
-
-    // After mockup finalized, invoke gui-agent
-    console.log(`
-✓ UI mockup finalized
-
-Now integrating WebView UI into ${pluginName}...
-    `);
-
-    const mockupPath = findLatestMockup(pluginName);
-
-    if (!mockupPath) {
-      console.log("✗ Mockup finalization failed or was cancelled. Returning to menu.");
-      return;
-    }
-
-    // Read contracts
-    const creativeBrief = readFile(`plugins/${pluginName}/.ideas/creative-brief.md`);
-    const parameterSpec = readFile(`plugins/${pluginName}/.ideas/parameter-spec.md`);
-    const architecture = readFile(`plugins/${pluginName}/.ideas/architecture.md`);
-
-    // Invoke gui-agent (same as plugin-workflow Stage 3)
-    const guiResult = Task({
-      subagent_type: "gui-agent",
-      description: `Add WebView UI to ${pluginName}`,
-      prompt: `
-Integrate WebView UI for ${pluginName} (upgrading from headless).
-
-**Contracts:**
-- creative-brief.md: ${creativeBrief}
-- parameter-spec.md: ${parameterSpec}
-- architecture.md: ${architecture}
-- Mockup: ${mockupPath}
-
-**Tasks:**
-1. Read mockup and extract UI structure
-2. Generate Source/ui/ directory with WebView resources
-3. Update PluginEditor.h/cpp to use WebView (replace minimal editor)
-4. Bind all parameters to UI controls
-5. Update CMakeLists.txt (add JUCE_WEB_BROWSER=1, binary data)
-6. Build and verify
-7. Return JSON report with status
-
-This is an upgrade from headless to WebView UI (v1.0.0 → v1.1.0).
-      `
-    });
-
-    // Parse result
-    const report = parseSubagentReport(guiResult);
-
-    if (report.status !== "success") {
-      console.log("✗ GUI integration failed. See error above.");
-      return;
-    }
-
-    // Update version to v1.1.0
-    const currentVersion = getCurrentVersion(pluginName); // Read from PLUGINS.md
-    const newVersion = bumpMinorVersion(currentVersion); // 1.0.0 → 1.1.0
-
-    // Update .continue-here.md gui_type field
-    const handoffPath = `plugins/${pluginName}/.continue-here.md`;
-    bash(`sed -i '' 's/^gui_type: headless/gui_type: webview/' "${handoffPath}"`);
-
-    // Update PLUGINS.md table row
-    updatePluginStatus(pluginName, "✅ Working");
-    updatePluginVersion(pluginName, newVersion);
-
-    // Update NOTES.md status and timeline
-    const notesPath = `plugins/${pluginName}/NOTES.md`;
-    if (!fileExists(notesPath)) {
-      createNotesFile(pluginName, "✅ Working");
-    }
-
-    // Update status in NOTES.md
-    bash(`sed -i '' 's/^- \\*\\*Current Status:\\*\\* .*$/- **Current Status:** ✅ Working/' "${notesPath}"`);
-
-    // Update version in NOTES.md
-    bash(`sed -i '' 's/^- \\*\\*Version:\\*\\* .*$/- **Version:** ${newVersion}/' "${notesPath}"`);
-
-    // Add timeline entry to NOTES.md
-    updatePluginTimeline(pluginName, 4, `WebView UI added (v${newVersion}) - Custom interface with visual controls`);
-
-    // CHANGELOG.md entry
-    const paramCount = getParameterCount(pluginName);
-    updateChangelog(pluginName, newVersion, `
-## [${newVersion}] - ${getCurrentDate()}
-
-### Added
-- **WebView UI:** Custom interface with visual parameter controls
-  - Replaces minimal editor (DAW controls still work)
-  - Designed with ui-mockup skill
-  - All ${paramCount} parameters bound to UI
-  - VU meters and visual feedback added
-
-### Changed
-- **Binary size:** Increased due to WebView resources (expected)
-
-### Notes
-- Existing automation and presets are unaffected
-- DAW generic UI still accessible as fallback
-    `);
-
-    // Git commit
-    bash(`
-git add plugins/${pluginName}/Source/
-git add plugins/${pluginName}/.continue-here.md
-git add plugins/${pluginName}/CHANGELOG.md
-git add PLUGINS.md
-
-git commit -m "$(cat <<'EOF'
-feat(${pluginName}): add WebView UI (v${newVersion})
-
-Upgraded from headless to custom WebView interface
-All parameters bound to visual controls
-Minor version bump (backward compatible)
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
-    `);
-
-    // Build and install
-    console.log(`\nBuilding ${pluginName} v${newVersion} with WebView UI...`);
-    bash(`./scripts/build-and-install.sh ${pluginName}`);
-
-    // Present completion menu
-    console.log(`
-✓ ${pluginName} v${newVersion} complete
-
-UI upgrade successful:
-- Headless (v${currentVersion}) → WebView UI (v${newVersion})
-- Custom interface integrated
-- All parameters bound to visual controls
-- Built and installed
-
-What's next?
-
-1. Test in DAW - Try out your new interface
-2. Refine UI styling - Polish visual design
-3. Make another improvement
-4. Create new plugin
-5. Other
-
-Choose (1-5): _
-    `);
-
-    const nextChoice = getUserInput();
-
-    if (nextChoice === "1") {
-      console.log("\nInstructions for DAW testing:\n1. Load plugin in DAW\n2. Test all UI controls\n3. Verify parameter automation\n\nReturn here when ready.");
-    } else if (nextChoice === "2") {
-      console.log("\nTo refine UI:\n1. Run /improve ${pluginName}\n2. Describe styling changes\n3. I'll update mockup and regenerate\n");
-    } else if (nextChoice === "3") {
-      // Re-run /improve
-      console.log(`\nRunning /improve ${pluginName} again...`);
-      // Restart /improve flow (normal mode, not headless)
-    }
-
-  } else if (choice === "2") {
-    // Return to /improve main menu
-    return;
-  } else if (choice === "3") {
-    // Explain WebView UI
-    console.log(`
-WebView UI Explanation
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-WebView UI uses HTML/CSS/JavaScript to create custom plugin interfaces:
-
-✓ Full visual control:
-  - Custom layouts, colors, fonts
-  - Animations and visual feedback
-  - Branded, professional appearance
-
-✓ Rapid iteration:
-  - Design in browser first (ui-mockup skill)
-  - Iterate on styling without recompiling
-  - Modern web development tools
-
-✓ All parameters bound to UI:
-  - Knobs, sliders, toggles, dropdowns
-  - Two-way sync (UI ↔ DSP)
-  - Automation still works
-
-Trade-offs:
-- Larger binary size (+1-2MB due to WebView resources)
-- 10-15 min to implement (design + integration)
-- Slightly higher CPU usage (minimal, unnoticeable)
-
-Headless plugins are faster to build but less visually polished.
-WebView plugins have custom branding and professional appearance.
-
-Press Enter to return to menu...
-    `);
-
-    getUserInput(); // Wait for Enter
-    handleCreateCustomUi(pluginName); // Re-present menu
-  }
-}
-```
+**Workflow:**
+
+1. Read .continue-here.md and check `gui_type` field
+2. If `gui_type: headless` OR WebView UI files don't exist → Plugin is headless
+3. If headless, present 4-option menu: Create UI, Keep headless, Explain headless, Other
+4. If "Create UI" selected → Invoke ui-mockup skill, then gui-agent subagent
+5. Update version to v1.1.0 (MINOR bump - new feature)
+6. Update state files and commit changes
+
+**See**: [references/headless-ui-workflow.md](references/headless-ui-workflow.md) for complete detection logic, menu flows, gui-agent invocation, state updates, and completion protocol.
 
 **If NOT headless:** Skip to Phase 0.3 (normal flow)
 
@@ -529,38 +223,14 @@ Choose (1-4): _
 
 **Purpose:** Find root causes, prevent band-aid fixes
 
-### Automatic Tier Detection
+**Workflow:**
 
-Analyze request and select tier automatically. Never ask user which tier.
+1. Analyze request and auto-detect tier (1/2/3) - never ask user which tier
+2. Execute tier-appropriate investigation protocol
+3. For Tier 3 (complex issues), delegate to deep-research skill
+4. Present findings and wait for approval before implementing
 
-**Detection algorithm** (check in order, first match wins):
-
-| Priority | Condition | Tier |
-|----------|-----------|------|
-| 1 | Known pattern in troubleshooting/ | Tier 1 (quick) |
-| 2 | Keywords: "crash", "performance", "architecture", "all plugins" | Tier 3 (complex, delegate) |
-| 3 | Scope: Multiple components OR unclear cause | Tier 3 (complex, delegate) |
-| 4 | Scope: Single file + clear symptom | Tier 2 (moderate) |
-| 5 | Keywords: "cosmetic", "typo", "rename", "color", "text" | Tier 1 (quick) |
-| 6 | Default (if no matches) | Tier 1, escalate if needed |
-
-Log selected tier: "Analyzing issue (quick investigation)..." or "Analyzing issue (deep investigation)..."
-
-### Tier 3: Deep Research (Delegate)
-
-For complex issues (Tier 3 detected), invoke deep-research skill:
-
-```
-Complex issue detected. Invoking deep-research skill...
-```
-
-Use Skill tool to invoke deep-research with problem context. It performs graduated investigation and returns structured findings.
-
-**See**: [references/investigation-tiers.md](references/investigation-tiers.md) for complete protocols for each tier.
-
-### Present Findings
-
-After investigation (any tier), present findings and wait for approval before implementing.
+**See**: [references/investigation-tiers.md](references/investigation-tiers.md) for complete tier detection algorithm and protocols for each tier (1: Basic Code Inspection, 2: Root Cause Analysis, 3: Deep Research Delegation).
 
 <critical_sequence phase="backup-verification" enforcement="strict">
 ## Phase 0.9: Backup Verification
@@ -727,45 +397,19 @@ Ready to implement changes for v[NewVersion]
 
 ## Phase 4: CHANGELOG Update
 
-**Add version entry at top of CHANGELOG.md:**
+**Add version entry at top of CHANGELOG.md with technical details:**
 
-### Template Structure
-
-```markdown
-## [VERSION] - YYYY-MM-DD
-
-### Added (for new features)
-- **Feature name:** Brief description
-  - Technical detail
-  - Impact: What this enables
-
-### Changed (for changes to existing functionality)
-- **Component name:** What changed
-  - Before: Previous behavior
-  - After: New behavior
-
-### Fixed (for bug fixes)
-- **Issue:** What was broken
-  - Root cause: Technical explanation
-  - Solution: How it was fixed
-
-### Breaking Changes (MAJOR versions only)
-- **API change:** What's incompatible
-  - Migration: How to update existing uses
-```
-
-### Section Usage by Version Type
-
-- **PATCH (0.0.X):** Use "Fixed" section primarily
-- **MINOR (0.X.0):** Use "Added" and/or "Changed" sections
-- **MAJOR (X.0.0):** Include "Breaking Changes" and "Migration Notes"
-
-**Always include:**
+**Required fields:**
 - Date in ISO format (YYYY-MM-DD)
 - Root cause for fixes (from Phase 0.5 investigation)
 - Testing notes (regression test results if Phase 5.5 ran)
 
-**See**: [references/changelog-format.md](references/changelog-format.md) for detailed examples and best practices.
+**Sections by version type:**
+- **PATCH (0.0.X):** Use "Fixed" section primarily
+- **MINOR (0.X.0):** Use "Added" and/or "Changed" sections
+- **MAJOR (X.0.0):** Include "Breaking Changes" and "Migration Notes"
+
+**See**: [references/changelog-format.md](references/changelog-format.md) for complete template structure, section usage guide, and examples by version type (PATCH/MINOR/MAJOR).
 
 <delegation_rule target="build-automation" required="true">
 ## Phase 5: Build and Test

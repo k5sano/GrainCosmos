@@ -1,6 +1,6 @@
 ---
 name: plugin-lifecycle
-description: Manage complete plugin lifecycle - install, uninstall, reset, destroy. Use after Stage 4 completion or when modifying deployed plugins.
+description: Manage complete plugin lifecycle - install, uninstall, reset, destroy. Use when user runs /install-plugin, /uninstall, /reset-to-ideation, /destroy, /clean commands, or says 'install [Name]', 'remove [Name]', 'uninstall [Name]', 'delete [Name]'.
 allowed-tools:
   - Bash
   - Read
@@ -27,19 +27,6 @@ All operations include proper permissions, cache clearing, state tracking, and s
 
 ---
 
-## Common Operations (Used Across Modes)
-
-**Extract Product Name:**
-```bash
-PRODUCT_NAME=$(grep 'PRODUCT_NAME' plugins/$PLUGIN_NAME/CMakeLists.txt | sed 's/.*PRODUCT_NAME "\(.*\)".*/\1/')
-```
-
-**Update State Files:**
-- PLUGINS.md table row: Update status, version, and last updated fields
-- plugins/[Name]/NOTES.md: Update status metadata, add timeline entries
-- See reference files for specific update sequences
-
----
 
 ## Mode Dispatcher
 
@@ -55,12 +42,14 @@ This skill operates in different modes based on the invoking command:
 
 **Invocation Pattern:**
 When user runs `/install-plugin [Name]`, the command expands to a prompt that invokes THIS skill.
-Determine mode by examining command (see [references/invocation-protocol.md](references/invocation-protocol.md)), then execute steps in appropriate reference file:
-- Mode 1 → Execute steps in `references/installation-process.md`
-- Mode 2 → Execute steps in `references/uninstallation-process.md`
-- Mode 3 → Execute steps in `references/mode-3-reset.md`
-- Mode 4 → Execute steps in `references/mode-4-destroy.md`
-- Menu → Present menu, wait for selection, then route to chosen mode
+Determine mode by examining command (see [references/invocation-protocol.md](references/invocation-protocol.md)), then load ONLY the relevant reference file:
+- Mode 1 → Load and execute `references/installation-process.md` ONLY
+- Mode 2 → Load and execute `references/uninstallation-process.md` ONLY
+- Mode 3 → Load and execute `references/mode-3-reset.md` ONLY
+- Mode 4 → Load and execute `references/mode-4-destroy.md` ONLY
+- Menu → Present menu, wait for selection, then load chosen mode reference file
+
+**IMPORTANT:** Do NOT load other mode reference files. Load only the reference file for the active mode to optimize context window usage.
 
 **Installation targets (macOS):**
 - VST3, AU: `~/Library/Audio/Plug-Ins/VST3/`, `~/Library/Audio/Plug-Ins/Components/`
@@ -185,7 +174,23 @@ Choose (1-4): _
 
 ---
 
-After successful operations, present decision menu to user. See [references/decision-menu-protocol.md](references/decision-menu-protocol.md) for menu format and response handlers.
+## Checkpoint Protocol
+
+After successful operations, check workflow mode before presenting decision menu:
+
+1. **Check workflow mode:**
+   - Read `.claude/preferences.json` for `workflow.mode` setting
+   - Modes: "manual" (present menu) or "express" (skip menu)
+
+2. **Manual mode (default):**
+   - Present decision menu to user
+   - See [references/decision-menu-protocol.md](references/decision-menu-protocol.md) for menu format
+
+3. **Express mode:**
+   - Skip decision menu
+   - Return control to caller immediately
+
+**Note:** plugin-lifecycle operations are terminal (don't chain to next stage), so express mode behavior is: complete operation → skip menu → end workflow.
 
 ---
 
@@ -227,22 +232,7 @@ After successful operations, present decision menu to user. See [references/deci
 
 ## Success Criteria
 
-Installation is successful when:
-
-- ✅ Both VST3 and AU files copied to system folders
-- ✅ Permissions set correctly (755) on all files
-- ✅ Caches cleared for all detected DAWs
-- ✅ Verification shows recent timestamps (< 60 seconds ago)
-- ✅ File sizes are reasonable (> 100 KB typically)
-- ✅ PLUGINS.md table row updated (status: 📦 Installed, last updated)
-- ✅ NOTES.md updated (status, timeline entry, installation locations)
-- ✅ User knows next steps (restart DAW, rescan plugins)
-
-**NOT required for success:**
-
-- Plugin appearing in DAW immediately (may need rescan/restart)
-- All DAW caches cleared (some DAWs may not be installed)
-- Code signing (optional for local development)
+Installation is successful when: VST3/AU installed with 755 permissions, caches cleared, PLUGINS.md updated, user informed of next steps.
 
 ---
 

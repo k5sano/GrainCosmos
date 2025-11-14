@@ -1,6 +1,6 @@
 ---
 name: system-setup
-description: Validates and configures all dependencies required for the Plugin Freedom System. This is a STANDALONE skill that runs BEFORE plugin workflows begin. It checks for Python, build tools, CMake, JUCE, and pluginval, optionally installing missing dependencies with user approval. Configuration is saved to .claude/system-config.json for use by other skills.
+description: Validates and configures all dependencies required for the Plugin Freedom System. This is a STANDALONE skill that runs BEFORE plugin workflows begin. It checks for Python, build tools, CMake, JUCE, and pluginval, optionally installing missing dependencies with user approval. Configuration is saved to .claude/system-config.json for use by other skills. Use when user mentions setup, installation, dependencies, missing tools, or when SessionStart hook detects configuration issues.
 allowed-tools:
   - Bash # For dependency checks and installation
   - Read # For checking existing config
@@ -71,7 +71,33 @@ For detailed dependency requirements and installation instructions, see [referen
 
 When invoked via `/setup` command:
 
-**Check for test mode first:**
+**Check for existing configuration first:**
+
+1. Check if `.claude/system-config.json` exists and is recent (validated within last 30 days)
+2. If valid config exists, offer quick menu:
+   ```
+   System Setup - Plugin Freedom System
+
+   Existing configuration found (validated 5 days ago)
+
+   What would you like to do?
+   1. Re-validate all dependencies (full check)
+   2. View current configuration
+   3. Reconfigure specific dependency
+   4. Exit
+
+   Choose (1-4): _
+   ```
+3. Handle choice:
+   - Choice 1: Proceed to full validation flow below (skip MODE selection, use "check-only" mode)
+   - Choice 2: Display `.claude/system-config.json` contents and exit
+   - Choice 3: Ask which dependency to reconfigure, then run validation for that dependency only
+   - Choice 4: Exit
+4. Only load full references if user chooses option 1 (full re-validation)
+
+**If no valid config exists, proceed with full setup:**
+
+**Check for test mode:**
 - TEST_MODE is set if user provided `--test=SCENARIO` argument to `/setup` command
 - Store in variable: `TEST_MODE=SCENARIO` (or empty if not in test mode)
 - This variable persists throughout the entire setup session
@@ -338,7 +364,7 @@ Choose (1-5): _
 ```
 
 **Handle user choice:**
-- Choice 1: Invoke plugin-ideation skill (same as `/dream`)
+- Choice 1: Use Skill tool to invoke plugin-ideation: `Skill("plugin-ideation")`
 - Choice 2: Show command list via `ls .claude/commands/`
 - Choice 3: Display README.md
 - Choice 4: Re-run system-setup skill

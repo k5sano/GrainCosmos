@@ -108,15 +108,32 @@ if [ -f "$NOTES_FILE" ]; then
 fi
 ```
 
-**Verification:**
+**Verification (BLOCKING):**
 ```bash
 # Verify PLUGINS.md table shows ✅ Working
 TABLE=$(grep "^| ${PLUGIN_NAME} |" PLUGINS.md | awk -F'|' '{print $3}' | xargs)
 echo "Table status: $TABLE"  # Should show: ✅ Working
 
+# Check verification
+if [ "$TABLE" != "✅ Working" ]; then
+  echo "❌ PLUGINS.md update failed - status is '$TABLE' instead of '✅ Working'"
+  echo "State corruption detected. Manual fix required."
+  exit 1
+fi
+
 # Verify NOTES.md shows ✅ Working
-NOTES_STATUS=$(grep "^\*\*Current Status:\*\*" "plugins/${PLUGIN_NAME}/NOTES.md" | sed 's/.*Current Status:\*\* //')
-echo "NOTES status: $NOTES_STATUS"  # Should show: ✅ Working
+if [ -f "plugins/${PLUGIN_NAME}/NOTES.md" ]; then
+  NOTES_STATUS=$(grep "^\*\*Current Status:\*\*" "plugins/${PLUGIN_NAME}/NOTES.md" | sed 's/.*Current Status:\*\* //')
+  echo "NOTES status: $NOTES_STATUS"  # Should show: ✅ Working
+
+  if [ "$NOTES_STATUS" != "✅ Working" ]; then
+    echo "❌ NOTES.md update failed - status is '$NOTES_STATUS' instead of '✅ Working'"
+    echo "State corruption detected. Manual fix required."
+    exit 1
+  fi
+fi
+
+echo "✓ State verification passed"
 ```
 
 ## Step 6: Confirmation

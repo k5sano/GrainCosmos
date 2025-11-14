@@ -26,7 +26,7 @@ When executing system-setup skill, you MUST:
 - Auto-proceed without user confirmation at decision gates
 - Use AskUserQuestion tool instead of inline numbered menus
 - Forget to append test mode to system-check.sh calls
-- Change MODE mid-session (MODE persists from initial choice)
+- Change MODE variable after initial selection (MODE must persist for Python, Build Tools, CMake, JUCE, and pluginval throughout entire session. If user requests mode change, restart skill with new mode from beginning.)
 
 ## Mode-Specific Behavior
 

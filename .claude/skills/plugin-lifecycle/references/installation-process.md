@@ -199,15 +199,30 @@ EOF
 fi
 ```
 
-**Verification:**
+**Verification (BLOCKING):**
 ```bash
 # Verify PLUGINS.md table shows 📦 Installed
 TABLE=$(grep "^| ${PLUGIN_NAME} |" PLUGINS.md | awk -F'|' '{print $3}' | xargs)
 echo "Table status: $TABLE"  # Should show: 📦 Installed
 
+# Check verification
+if [ "$TABLE" != "📦 Installed" ]; then
+  echo "❌ PLUGINS.md update failed - status is '$TABLE' instead of '📦 Installed'"
+  echo "State corruption detected. Manual fix required."
+  exit 1
+fi
+
 # Verify NOTES.md exists and shows 📦 Installed
 NOTES_STATUS=$(grep "^\*\*Current Status:\*\*" "plugins/${PLUGIN_NAME}/NOTES.md" | sed 's/.*Current Status:\*\* //')
 echo "NOTES status: $NOTES_STATUS"  # Should show: 📦 Installed
+
+if [ "$NOTES_STATUS" != "📦 Installed" ]; then
+  echo "❌ NOTES.md update failed - status is '$NOTES_STATUS' instead of '📦 Installed'"
+  echo "State corruption detected. Manual fix required."
+  exit 1
+fi
+
+echo "✓ State verification passed"
 ```
 
 ---
