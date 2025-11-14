@@ -84,53 +84,49 @@ console.log(
 
 **If complexity ≤2 OR no phases defined:**
 
-**Read JUCE 8 critical patterns:**
-
-```typescript
-const criticalPatterns = await Read({
-  file_path: "troubleshooting/patterns/juce8-critical-patterns.md"
-});
-```
-
-Invoke gui-agent once for complete UI integration:
+Invoke gui-agent once for complete UI integration with minimal prompt:
 
 ```typescript
 const mockupPath = findLatestMockup(pluginName);
 
 const guiResult = Task({
   subagent_type: "gui-agent",
-  description: `Integrate WebView UI for ${pluginName}`,
-  prompt: `CRITICAL PATTERNS (MUST FOLLOW):
+  description: `Stage 4 - ${pluginName}`,
+  prompt: `
+You are gui-agent implementing Stage 4 for ${pluginName}.
 
-${criticalPatterns}
+**Plugin:** ${pluginName}
+**Stage:** 4 (GUI Integration)
+**Complexity:** ${complexityScore} (single-pass)
+**Your task:** Integrate WebView UI with ALL parameter bindings
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**UI Mockup:** ${mockupPath}
 
-Integrate WebView UI for plugin at plugins/${pluginName}.
-
-Inputs:
-- Finalized UI mockup: ${mockupPath}
-- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
+**Contracts (read these files yourself):**
 - creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
-- Plugin name: ${pluginName}
-- Complexity: ${complexityScore} (single-pass)
+- architecture.md: plugins/${pluginName}/.ideas/architecture.md
+- plan.md: plugins/${pluginName}/.ideas/plan.md
+- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
 
-Tasks:
-1. Read finalized UI mockup from ${mockupPath}
-2. Create ui/public/ directory at plugins/${pluginName}/ui/public/
-3. Copy mockup to plugins/${pluginName}/ui/public/index.html
-4. Download JUCE frontend library to ui/public/juce-framework.js
-5. Add relay members to PluginEditor.h (CRITICAL ORDER: Relays first, then WebView, then Attachments)
-6. Implement parameter bindings in PluginEditor.cpp
-7. Add WebView initialization in PluginEditor constructor
-8. Update CMakeLists.txt to enable JUCE_WEB_BROWSER=1
-9. Verify all parameter IDs from parameter-spec.md match HTML element IDs exactly
+**CRITICAL: Read Required Reading BEFORE implementation.**
+
+**Implementation steps:**
+1. Read all contract files listed above
+2. Read Required Reading (MANDATORY)
+3. Read finalized UI mockup from ${mockupPath}
+4. Create ui/public/ directory and copy mockup
+5. Download JUCE frontend library to ui/public/juce-framework.js
+6. Add relay members to PluginEditor.h (CRITICAL ORDER: Relays → WebView → Attachments)
+7. Implement parameter bindings in PluginEditor.cpp
+8. Add WebView initialization in constructor
+9. Update CMakeLists.txt to enable JUCE_WEB_BROWSER=1
 10. Return JSON report with binding count and member order verification
 
 ⚠️ CRITICAL: Member declaration order (Relays → WebView → Attachments) prevents 90% of release build crashes.
 
-Build verification handled by workflow after agent completes.
-  `,
+Build verification handled by orchestrator after you complete.
+  `
 });
 
 // Parse and validate report
@@ -152,6 +148,18 @@ if (report.status === "success") {
       report.outputs.member_order_correct ? "Yes" : "No"
     }`
   );
+
+  // Invoke validation-agent for semantic review
+  console.log("\nInvoking validation-agent for semantic review...");
+  const validationResult = invokeValidationAgent(pluginName, 4);
+  const validation = parseValidationReport(validationResult);
+
+  if (validation.status === "FAIL" && !validation.continue_to_next_stage) {
+    presentValidationFailureMenu(validation);
+    return; // Block until user resolves
+  }
+
+  console.log(`✓ Validation ${validation.status}: ${validation.recommendation}`);
 
   // Continue to auto-test (Step 5)
 }
@@ -181,38 +189,50 @@ phases.forEach((phase) => {
   console.log(`  - Phase ${phase.number}: ${phase.description}`);
 });
 
-**Read JUCE 8 critical patterns (used for all phases):**
+**Execute each phase sequentially (with minimal prompts):**
 
-```typescript
-const criticalPatterns = await Read({
-  file_path: "troubleshooting/patterns/juce8-critical-patterns.md"
-});
-```
-
-// Execute each phase sequentially (same pattern as Stage 3)
+// Execute each phase sequentially
 for (let i = 0; i < phases.length; i++) {
   const phase = phases[i];
 
   console.log(`\n━━━ Stage ${phase.number} - ${phase.description} ━━━\n`);
 
+  const mockupPath = findLatestMockup(pluginName);
+
   const phaseResult = Task({
     subagent_type: "gui-agent",
-    description: `Implement UI Phase ${phase.number} for ${pluginName}`,
-    prompt: `CRITICAL PATTERNS (MUST FOLLOW):
+    description: `Stage 4.${i+1} - ${pluginName}`,
+    prompt: `
+You are gui-agent implementing Phase ${phase.number} for ${pluginName}.
 
-${criticalPatterns}
+**Plugin:** ${pluginName}
+**Stage:** 4 (GUI Integration)
+**Phase:** ${phase.number} - ${phase.description}
+**Your task:** Implement Phase ${phase.number} UI components only
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**UI Mockup:** ${mockupPath}
 
-You are gui-agent. Your task is to implement Phase ${phase.number} of UI for ${pluginName}.
+**Contracts (read these files yourself):**
+- creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
+- architecture.md: plugins/${pluginName}/.ideas/architecture.md
+- plan.md: plugins/${pluginName}/.ideas/plan.md
+- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
 
-**Current Phase:** ${phase.number} - ${phase.description}
-**Total Phases:** ${phases.length}
+**CRITICAL: Read Required Reading BEFORE implementation.**
 
-[Include mockup, contracts, phase-specific instructions]
+**Phase implementation steps:**
+1. Read all contract files listed above
+2. Read Required Reading (MANDATORY)
+3. Extract Phase ${phase.number} components from plan.md
+4. Implement this phase's UI elements only
+5. Build on existing code from previous phases (preserve all)
+6. Connect this phase's parameters only
+7. Maintain member order (Relays → WebView → Attachments)
+8. Return JSON report with phase_completed: "${phase.number}"
 
-Return JSON report with phase_completed: "${phase.number}".
-    `,
+Build verification handled by orchestrator after you complete.
+    `
   });
 
   const phaseReport = parseSubagentReport(phaseResult);

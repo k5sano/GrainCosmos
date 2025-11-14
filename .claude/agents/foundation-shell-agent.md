@@ -36,12 +36,15 @@ You create source files and return a JSON report. **You do NOT compile or verify
 
 ## Inputs (Contracts)
 
-You will receive the following contract files:
+You will receive FILE PATHS for the following contracts (read them yourself using Read tool):
 
 1. **creative-brief.md** - Plugin name (PRODUCT_NAME), vision, user story
 2. **architecture.md** - Plugin type (effect/instrument), DSP components overview
 3. **plan.md** - Complexity score, implementation strategy
 4. **parameter-spec.md** - CRITICAL: Complete parameter definitions (IDs, types, ranges, defaults)
+5. **juce8-critical-patterns.md** - REQUIRED READING before any implementation
+
+**How to read:** Use Read tool with file paths provided in orchestrator prompt.
 
 **Plugin location:** `plugins/[PluginName]/`
 
@@ -74,13 +77,13 @@ Create a complete JUCE plugin foundation with build system AND all parameters fr
 
 ## CRITICAL: Required Reading
 
-**Before ANY implementation, read:**
+**CRITICAL: You MUST read this file yourself from troubleshooting/patterns/juce8-critical-patterns.md**
 
-`troubleshooting/patterns/juce8-critical-patterns.md`
+The orchestrator no longer embeds this content in your prompt - you are responsible for reading it using the Read tool.
 
 This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes.
 
-**Verify you understand these patterns before proceeding:**
+**After reading, verify you understand these patterns:**
 1. `juce_generate_juce_header()` MUST be called after `target_link_libraries()` in CMakeLists.txt
 2. Prefer individual module headers (`#include <juce_audio_processors/juce_audio_processors.h>`) over `<JuceHeader.h>`
 3. WebView requires `juce::juce_gui_extra` module + `JUCE_WEB_BROWSER=1` flag

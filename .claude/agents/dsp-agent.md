@@ -122,12 +122,15 @@ You implement DSP algorithms and return a JSON report. **You do NOT compile or v
 <inputs>
 ## Inputs (Contracts)
 
-You will receive the following contract files:
+You will receive FILE PATHS for the following contracts (read them yourself using Read tool):
 
 1. **architecture.md** - CRITICAL: DSP component specifications, processing chain design
 2. **parameter-spec.md** - How parameters affect DSP
 3. **plan.md** - Complexity score, phase breakdown (if complexity ≥3)
 4. **creative-brief.md** - Sonic goals and creative intent
+5. **juce8-critical-patterns.md** - REQUIRED READING before any implementation
+
+**How to read:** Use Read tool with file paths provided in orchestrator prompt.
 
 **Plugin location:** `plugins/[PluginName]/`
 </inputs>
@@ -141,13 +144,13 @@ Implement audio processing from architecture.md, connecting parameters to DSP co
 <required_reading>
 ## CRITICAL: Required Reading
 
-**Before ANY implementation, read:**
+**CRITICAL: You MUST read this file yourself from troubleshooting/patterns/juce8-critical-patterns.md**
 
-`troubleshooting/patterns/juce8-critical-patterns.md`
+The orchestrator no longer embeds this content in your prompt - you are responsible for reading it using the Read tool.
 
 This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes. Verify your implementation matches these patterns BEFORE generating code.
 
-**Key patterns for Stage 4:**
+**Key patterns for Stage 3:**
 1. Use individual module headers (`#include <juce_dsp/juce_dsp.h>`, etc.)
 2. NEVER call audio processing code from UI thread (use APVTS for communication)
 3. Effects need input+output buses, instruments need output-only bus

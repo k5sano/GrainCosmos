@@ -43,48 +43,40 @@ console.log(
 
 **If complexity ≤2 OR no phases defined:**
 
-**Read JUCE 8 critical patterns:**
-
-```typescript
-const criticalPatterns = await Read({
-  file_path: "troubleshooting/patterns/juce8-critical-patterns.md"
-});
-```
-
-Invoke dsp-agent once for complete DSP implementation:
+Invoke dsp-agent once for complete DSP implementation with minimal prompt:
 
 ```typescript
 const dspResult = Task({
   subagent_type: "dsp-agent",
-  description: `Implement DSP for ${pluginName}`,
-  prompt: `CRITICAL PATTERNS (MUST FOLLOW):
+  description: `Stage 3 - ${pluginName}`,
+  prompt: `
+You are dsp-agent implementing Stage 3 for ${pluginName}.
 
-${criticalPatterns}
+**Plugin:** ${pluginName}
+**Stage:** 3 (DSP Implementation)
+**Complexity:** ${complexityScore} (single-pass)
+**Your task:** Implement ALL DSP components from architecture.md
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Implement audio processing for plugin at plugins/${pluginName}.
-
-Inputs:
+**Contracts (read these files yourself):**
+- creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
 - architecture.md: plugins/${pluginName}/.ideas/architecture.md
-- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
 - plan.md: plugins/${pluginName}/.ideas/plan.md
-- Plugin name: ${pluginName}
-- Complexity: ${complexityScore} (single-pass)
+- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
 
-Tasks:
-1. Read architecture.md and identify all DSP components to implement
-2. Read parameter-spec.md to map parameters to DSP controls
-3. Add member variables for DSP components to PluginProcessor.h
+**CRITICAL: Read Required Reading BEFORE implementation.**
+
+**Implementation steps:**
+1. Read all contract files listed above
+2. Read Required Reading (MANDATORY)
+3. Add DSP member variables to PluginProcessor.h
 4. Implement prepareToPlay() - initialize DSP at sample rate
-5. Implement processBlock() with all DSP components from architecture.md
-6. Connect all parameters to their DSP controls
-7. Use juce::ScopedNoDenormals in processBlock for real-time safety
-8. Ensure no memory allocations in audio thread
-9. Return JSON report with components list and real-time safety status
+5. Implement processBlock() with all DSP components
+6. Connect parameters to DSP controls
+7. Return JSON report with components list and real-time safety status
 
-Build verification handled by workflow after agent completes.
-  `,
+Build verification handled by orchestrator after you complete.
+  `
 });
 
 // Parse and validate report (same as Stage 2/3)
@@ -103,6 +95,18 @@ if (report.status === "success") {
   console.log(
     `  Real-time safe: ${report.outputs.real_time_safe ? "Yes" : "No"}`
   );
+
+  // Invoke validation-agent for semantic review
+  console.log("\nInvoking validation-agent for semantic review...");
+  const validationResult = invokeValidationAgent(pluginName, 3);
+  const validation = parseValidationReport(validationResult);
+
+  if (validation.status === "FAIL" && !validation.continue_to_next_stage) {
+    presentValidationFailureMenu(validation);
+    return; // Block until user resolves
+  }
+
+  console.log(`✓ Validation ${validation.status}: ${validation.recommendation}`);
 
   // Continue to auto-test (Step 5)
 }
@@ -133,15 +137,7 @@ phases.forEach((phase) => {
 });
 ```
 
-**Read JUCE 8 critical patterns (used for all phases):**
-
-```typescript
-const criticalPatterns = await Read({
-  file_path: "troubleshooting/patterns/juce8-critical-patterns.md"
-});
-```
-
-**Execute each phase sequentially:**
+**Execute each phase sequentially (with minimal prompts):**
 
 ```typescript
 for (let i = 0; i < phases.length; i++) {
@@ -154,39 +150,39 @@ for (let i = 0; i < phases.length; i++) {
 
   const phaseResult = Task({
     subagent_type: "dsp-agent",
-    description: `Implement DSP Phase ${phase.number} for ${pluginName}`,
-    prompt: `CRITICAL PATTERNS (MUST FOLLOW):
+    description: `Stage 3.${i+1} - ${pluginName}`,
+    prompt: `
+You are dsp-agent implementing Phase ${phase.number} for ${pluginName}.
 
-${criticalPatterns}
+**Plugin:** ${pluginName}
+**Stage:** 3 (DSP Implementation)
+**Phase:** ${phase.number} - ${phase.description}
+**Complexity:** ${complexityScore} (phased implementation)
+**Your task:** Implement Phase ${phase.number} components only
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Implement Phase ${phase.number} of DSP for plugin at plugins/${pluginName}.
-
-Inputs:
+**Contracts (read these files yourself):**
+- creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
 - architecture.md: plugins/${pluginName}/.ideas/architecture.md
+- plan.md: plugins/${pluginName}/.ideas/plan.md
 - parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
-- plan.md (Phase ${phase.number}): plugins/${pluginName}/.ideas/plan.md
-- Plugin name: ${pluginName}
-- Complexity: ${complexityScore}
-- Current phase: ${phase.number} - ${phase.description}
-- Total phases: ${phases.length}
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
 
-Tasks:
-1. Read plan.md and extract Phase ${phase.number} components only
-2. Read architecture.md for component specifications
-3. Add member variables for Phase ${phase.number} DSP components
-4. Implement Phase ${phase.number} components in processBlock()
-5. Build on existing code from previous phases (do not remove)
-6. Connect Phase ${phase.number} parameters only
-7. Ensure real-time safety (no allocations, use juce::ScopedNoDenormals)
-8. Update plan.md with phase completion timestamp
-9. Return JSON report with phase_completed: "${phase.number}"
+**CRITICAL: Read Required Reading BEFORE implementation.**
 
-CRITICAL: Implement ONLY Phase ${phase.number} components, preserve all previous phase code.
+**Phase implementation steps:**
+1. Read all contract files listed above
+2. Read Required Reading (MANDATORY)
+3. Extract Phase ${phase.number} components from plan.md
+4. Add member variables for this phase's DSP components
+5. Implement this phase's components in processBlock()
+6. Build on existing code from previous phases (preserve all)
+7. Connect this phase's parameters only
+8. Return JSON report with phase_completed: "${phase.number}"
 
-Build verification handled by workflow after agent completes.
-    `,
+**CRITICAL:** Implement ONLY Phase ${phase.number} components, preserve all previous phase code.
+
+Build verification handled by orchestrator after you complete.
+    `
   });
 
   const phaseReport = parseSubagentReport(phaseResult);

@@ -287,66 +287,81 @@ This provides context and links findings to the knowledge base.
 }
 ```
 
-### Stage 3: Shell Validation
+### Stage 2: Foundation Validation
 
 **Expected Inputs:**
 
-- `plugins/[PluginName]/Source/PluginProcessor.cpp` (with APVTS)
+- `plugins/[PluginName]/CMakeLists.txt`
+- `plugins/[PluginName]/Source/PluginProcessor.{h,cpp}`
+- `plugins/[PluginName]/Source/PluginEditor.{h,cpp}`
+- `plugins/[PluginName]/.ideas/architecture.md`
 - `plugins/[PluginName]/.ideas/parameter-spec.md`
 
-**Semantic Checks (hooks verified parameters exist):**
+**Semantic Checks (hooks already validated patterns exist):**
 
-- ✓ Parameter ranges appropriate for audio use (not arbitrary)?
-- ✓ Default values sensible for typical use?
-- ✓ Parameter smoothing strategy appropriate for parameter types?
-- ✓ APVTS creation follows JUCE best practices?
-- ✓ Parameter IDs follow consistent naming convention?
-- ✓ processBlock() stub safe (ScopedNoDenormals, pass-through)?
+- ✓ CMakeLists.txt uses appropriate JUCE modules for plugin type?
+- ✓ Plugin format configuration matches creative brief (VST3/AU/Standalone)?
+- ✓ JUCE 8 patterns used (ParameterID with version 1)?
+- ✓ juce_generate_juce_header() called after target_link_libraries()?
+- ✓ PluginProcessor inherits correctly from AudioProcessor?
+- ✓ Editor/processor relationship properly established?
+- ✓ All parameters from parameter-spec.md implemented in APVTS?
+- ✓ Parameter IDs match specification exactly (zero-drift)?
+- ✓ Code organization follows JUCE best practices?
 
 **Example Report:**
 
 ```json
 {
   "agent": "validation-agent",
-  "stage": 3,
+  "stage": 2,
+  "plugin_name": "AutoClip",
   "status": "PASS",
   "checks": [
     {
-      "name": "parameter_ranges",
+      "name": "juce_modules",
       "passed": true,
-      "message": "Gain range -60 to +12 dB is standard for audio plugins",
+      "message": "CMakeLists.txt includes juce_audio_basics, juce_audio_processors for audio plugin",
       "severity": "info"
     },
     {
-      "name": "default_values",
+      "name": "plugin_formats",
       "passed": true,
-      "message": "Defaults place plugin in neutral/pass-through state",
+      "message": "VST3 and AU formats enabled as specified in brief",
       "severity": "info"
     },
     {
-      "name": "naming_convention",
+      "name": "juce8_patterns",
       "passed": true,
-      "message": "Parameter IDs use camelCase consistently",
+      "message": "ParameterID uses version 1 format, juce_generate_juce_header() called correctly",
       "severity": "info"
     },
     {
-      "name": "processblock_safety",
+      "name": "parameter_count",
       "passed": true,
-      "message": "processBlock() uses ScopedNoDenormals and safely passes audio through",
+      "message": "All 7 parameters from parameter-spec.md implemented in APVTS",
+      "severity": "info"
+    },
+    {
+      "name": "parameter_drift",
+      "passed": true,
+      "message": "Parameter IDs match specification exactly (zero-drift verified)",
       "severity": "info"
     }
   ],
-  "recommendation": "Shell implementation follows parameter best practices",
-  "continue_to_next_stage": true
+  "recommendation": "Foundation follows JUCE 8 best practices, all parameters implemented correctly",
+  "continue_to_next_stage": true,
+  "token_count": 423
 }
 ```
 
-### Stage 4: DSP Validation
+### Stage 3: DSP Validation
 
 **Expected Inputs:**
 
 - `plugins/[PluginName]/Source/PluginProcessor.{h,cpp}` (with DSP implementation)
 - `plugins/[PluginName]/.ideas/architecture.md`
+- `plugins/[PluginName]/.ideas/parameter-spec.md`
 
 **Semantic Checks (hooks verified components exist):**
 
@@ -355,54 +370,51 @@ This provides context and links findings to the knowledge base.
 - ✓ Buffer preallocation in prepareToPlay()?
 - ✓ Component initialization order correct?
 - ✓ Parameter modulation applied correctly?
-- ✓ Edge cases handled (zero-length buffers, extreme parameter values)?
-- ✓ Numerical stability considerations (denormals, DC offset)?
+- ✓ Edge cases handled (zero-length buffers, extreme values)?
+- ✓ Numerical stability (denormals, DC offset)?
+- ✓ ScopedNoDenormals used in processBlock?
 
 **Example Report:**
 
 ```json
 {
   "agent": "validation-agent",
-  "stage": 4,
-  "status": "PASS",
+  "stage": 3,
+  "plugin_name": "AutoClip",
+  "status": "WARNING",
   "checks": [
     {
       "name": "creative_intent",
       "passed": true,
-      "message": "Tape saturation algorithm matches 'warm vintage' description in brief",
+      "message": "Soft-clipping algorithm matches 'warm saturation' description from brief",
       "severity": "info"
     },
     {
       "name": "realtime_safety",
       "passed": true,
-      "message": "No allocations found in processBlock(), uses ScopedNoDenormals",
+      "message": "No allocations in processBlock(), uses ScopedNoDenormals",
       "severity": "info"
     },
     {
       "name": "buffer_preallocation",
       "passed": true,
-      "message": "prepareToPlay() allocates delay buffers and calls component.prepare()",
-      "severity": "info"
-    },
-    {
-      "name": "parameter_modulation",
-      "passed": true,
-      "message": "Parameters smoothly update DSP components each block",
+      "message": "prepareToPlay() allocates delay buffers",
       "severity": "info"
     },
     {
       "name": "edge_cases",
       "passed": false,
-      "message": "No check for zero-length buffer in processBlock()",
+      "message": "No check for zero-length buffer in processBlock() line 87",
       "severity": "warning"
     }
   ],
-  "recommendation": "DSP implementation solid, consider adding zero-length buffer check",
-  "continue_to_next_stage": true
+  "recommendation": "DSP implementation solid, consider adding zero-length buffer check for robustness",
+  "continue_to_next_stage": true,
+  "token_count": 398
 }
 ```
 
-### Stage 5: GUI Validation
+### Stage 4: GUI Validation
 
 **Expected Inputs:**
 
@@ -419,6 +431,58 @@ This provides context and links findings to the knowledge base.
 - ✓ Accessibility considerations (labels, contrast)?
 - ✓ WebView initialization safe (error handling)?
 - ✓ Binary data embedded correctly?
+- ✓ All parameters from spec have UI bindings?
+
+**Example Report:**
+
+```json
+{
+  "agent": "validation-agent",
+  "stage": 4,
+  "plugin_name": "AutoClip",
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "member_order",
+      "passed": false,
+      "message": "Member declaration order incorrect: attachments declared before webView (should be relays → webView → attachments)",
+      "severity": "error"
+    },
+    {
+      "name": "parameter_bindings",
+      "passed": true,
+      "message": "All 7 parameters have relay/attachment pairs",
+      "severity": "info"
+    },
+    {
+      "name": "ui_aesthetic",
+      "passed": true,
+      "message": "Visual design matches mockup v2",
+      "severity": "info"
+    }
+  ],
+  "recommendation": "Fix member declaration order to prevent release build crashes (90% crash rate with wrong order)",
+  "continue_to_next_stage": false,
+  "token_count": 356
+}
+```
+
+### Stage 5: Final Validation
+
+**Expected Inputs:**
+
+- `plugins/[PluginName]/CHANGELOG.md`
+- `plugins/[PluginName]/Presets/` directory
+- `logs/[PluginName]/pluginval_*.log` (if build exists)
+- PLUGINS.md status
+
+**Checks:**
+
+- ✓ CHANGELOG.md follows Keep a Changelog format?
+- ✓ Version 1.0.0 for initial release?
+- ✓ Presets/ directory has 3+ preset files?
+- ✓ pluginval passed (or skipped with reason)?
+- ✓ PLUGINS.md updated to ✅ Working?
 
 **Example Report:**
 
@@ -426,41 +490,43 @@ This provides context and links findings to the knowledge base.
 {
   "agent": "validation-agent",
   "stage": 5,
+  "plugin_name": "AutoClip",
   "status": "PASS",
   "checks": [
     {
-      "name": "member_order",
+      "name": "changelog_format",
       "passed": true,
-      "message": "Member declaration order: relays → webView → attachments (prevents 90% crashes)",
+      "message": "CHANGELOG.md follows Keep a Changelog format",
       "severity": "info"
     },
     {
-      "name": "ui_aesthetic",
+      "name": "version",
       "passed": true,
-      "message": "Vintage hardware aesthetic with warm colors matches mockup",
+      "message": "Version 1.0.0 set for initial release",
       "severity": "info"
     },
     {
-      "name": "parameter_ranges",
+      "name": "presets",
       "passed": true,
-      "message": "UI slider ranges match parameter-spec.md exactly",
+      "message": "5 presets found in Presets/ directory",
       "severity": "info"
     },
     {
-      "name": "visual_feedback",
+      "name": "pluginval",
       "passed": true,
-      "message": "Knobs rotate on parameter change, smooth animation",
+      "message": "pluginval passed with 0 errors",
       "severity": "info"
     },
     {
-      "name": "webview_initialization",
-      "passed": false,
-      "message": "No error handling if WebView fails to load HTML",
-      "severity": "warning"
+      "name": "registry",
+      "passed": true,
+      "message": "PLUGINS.md status: ✅ Working",
+      "severity": "info"
     }
   ],
-  "recommendation": "GUI integration solid, consider adding WebView error handling",
-  "continue_to_next_stage": true
+  "recommendation": "Plugin ready for installation",
+  "continue_to_next_stage": true,
+  "token_count": 312
 }
 ```
 
@@ -505,6 +571,66 @@ See `.claude/schemas/README.md` for validation details.
 - **error**: Critical issue that should block progression (status: "FAIL")
 - **warning**: Issue that should be addressed but doesn't block
 - **info**: Informational finding, no action needed
+
+## Token Budget Enforcement
+
+**All validation reports MUST stay within 500-token budget.**
+
+This is critical for the orchestrator optimization (Task 13). The orchestrator only receives validation summaries, not full contract files.
+
+**How to achieve this:**
+
+1. **Concise messages:** Each check message should be 1-2 sentences max
+2. **Group related checks:** Combine similar findings into single check
+3. **Limit check count:** Maximum 5-7 checks per report
+4. **Brief recommendation:** 1-2 sentences only
+5. **Self-report tokens:** Include `token_count` field in JSON
+
+**Example of token-efficient report:**
+
+```json
+{
+  "agent": "validation-agent",
+  "stage": 3,
+  "plugin_name": "AutoClip",
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "juce8_compliance",
+      "passed": true,
+      "message": "All JUCE 8 patterns followed (ParameterID format, header generation, real-time safety)",
+      "severity": "info"
+    },
+    {
+      "name": "dsp_correctness",
+      "passed": true,
+      "message": "DSP matches architecture.md, parameters connected, buffer handling correct",
+      "severity": "info"
+    },
+    {
+      "name": "edge_cases",
+      "passed": false,
+      "message": "Missing zero-length buffer check in processBlock line 87",
+      "severity": "warning"
+    }
+  ],
+  "recommendation": "Implementation solid, consider adding zero-length buffer check",
+  "continue_to_next_stage": true,
+  "token_count": 287
+}
+```
+
+**Red flags (will exceed budget):**
+- ❌ More than 7 checks
+- ❌ Multi-paragraph messages
+- ❌ Detailed code snippets in messages
+- ❌ Verbose recommendations
+
+**Green flags (stays within budget):**
+- ✓ 3-5 checks maximum
+- ✓ One-sentence messages
+- ✓ High-level findings
+- ✓ Actionable but brief recommendations
 
 ## False Positives
 

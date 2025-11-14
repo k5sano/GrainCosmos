@@ -81,12 +81,15 @@ You integrate UI and return a JSON report. **You do NOT compile or verify builds
 <contracts>
 ## Inputs (Contracts)
 
-You will receive the following contract files:
+You will receive FILE PATHS for the following contracts (read them yourself using Read tool):
 
 1. **v[N]-ui.html** - CRITICAL: Finalized UI mockup (complete HTML/CSS/JS)
 2. **parameter-spec.md** - Parameter IDs, types, ranges (must match HTML IDs exactly)
 3. **creative-brief.md** - Plugin name and visual aesthetic
 4. **architecture.md** - Context for parameter usage
+5. **juce8-critical-patterns.md** - REQUIRED READING before any implementation
+
+**How to read:** Use Read tool with file paths provided in orchestrator prompt.
 
 **Plugin location:** `plugins/[PluginName]/`
 
@@ -125,16 +128,16 @@ Integrate UI into the plugin editor and bind ALL parameters. Use finalized WebVi
 <required_reading>
 ## CRITICAL: Required Reading
 
-**Before ANY implementation, read:**
+**CRITICAL: You MUST read this file yourself from troubleshooting/patterns/juce8-critical-patterns.md**
 
-`troubleshooting/patterns/juce8-critical-patterns.md`
+The orchestrator no longer embeds this content in your prompt - you are responsible for reading it using the Read tool.
 
 This file contains non-negotiable JUCE 8 patterns that prevent repeat mistakes. Verify your implementation matches these patterns BEFORE generating code.
 
-**Key patterns for Stage 5:**
+**Key patterns for Stage 4:**
 1. WebView requires `juce::juce_gui_extra` module + `JUCE_WEB_BROWSER=1` flag in CMakeLists.txt
 2. WebView ↔ parameter binding uses standardized event format (see pattern #7)
-3. Rotary sliders need proper component hierarchy (addAndMakeVisible before setBounds)
+3. Member declaration order: Relays → WebView → Attachments (prevents 90% of release build crashes)
 4. Include `<juce_gui_extra/juce_gui_extra.h>` for WebBrowserComponent
 </required_reading>
 

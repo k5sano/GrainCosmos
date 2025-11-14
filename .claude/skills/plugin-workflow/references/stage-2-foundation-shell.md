@@ -33,69 +33,44 @@ fi
 
 **If parameter-spec.md missing:** STOP IMMEDIATELY, exit skill, wait for user to create contract via ui-mockup skill.
 
-### 2. Prepare Contracts for Subagent
+### 2. Construct Minimal Prompt
 
-Read contract files that foundation-shell-agent needs:
-
-```bash
-cat plugins/[PluginName]/.ideas/creative-brief.md
-cat plugins/[PluginName]/.ideas/architecture.md
-cat plugins/[PluginName]/.ideas/plan.md
-cat plugins/[PluginName]/.ideas/parameter-spec.md
-```
-
-**CRITICAL: Read Required Patterns**
-
-Read JUCE 8 critical patterns file that MUST be followed:
-
-```typescript
-const criticalPatterns = await Read({
-  file_path: "troubleshooting/patterns/juce8-critical-patterns.md"
-});
-```
+Orchestrator does NOT read contracts - subagent will read them from files.
 
 ### 3. Invoke foundation-shell-agent via Task Tool
 
-Call foundation-shell-agent subagent with complete specification:
+Call foundation-shell-agent subagent with minimal prompt:
 
 ```typescript
 const foundationShellResult = Task({
   subagent_type: "foundation-shell-agent",
-  description: `Create build system and implement parameters for ${pluginName}`,
-  prompt: `CRITICAL PATTERNS (MUST FOLLOW):
+  description: `Stage 2 - ${pluginName}`,
+  prompt: `
+You are foundation-shell-agent implementing Stage 2 for ${pluginName}.
 
-${criticalPatterns}
+**Plugin:** ${pluginName}
+**Stage:** 2 (Foundation + Shell)
+**Your task:** Create build system and implement ALL parameters
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Create foundation and shell for plugin at plugins/${pluginName}.
-
-Inputs:
+**Contracts (read these files yourself):**
 - creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
 - architecture.md: plugins/${pluginName}/.ideas/architecture.md
 - plan.md: plugins/${pluginName}/.ideas/plan.md
 - parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
-- Plugin name: ${pluginName}
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
 
-Tasks:
-1. Read creative-brief.md and extract PRODUCT_NAME
-2. Read architecture.md and determine plugin type (Audio Effect | Synth | Utility)
-3. Read parameter-spec.md and extract ALL parameters
-4. Create CMakeLists.txt with JUCE 8 integration
-5. Create Source/PluginProcessor.h with APVTS member
-6. Create Source/PluginProcessor.cpp with:
-   - createParameterLayout() with ALL parameters from spec
-   - JUCE 8 ParameterID format: juce::ParameterID { "id", 1 }
-   - State management (getStateInformation/setStateInformation)
-7. Create Source/PluginEditor.h
-8. Create Source/PluginEditor.cpp with parameter count display
-9. Verify parameter count matches spec exactly (zero-drift)
-10. Return JSON report with file list, parameter list, and count
+**CRITICAL: Read Required Reading BEFORE implementation.**
 
-CRITICAL: All parameter IDs must match parameter-spec.md exactly (case-sensitive).
+**Implementation steps:**
+1. Read all contract files listed above
+2. Read Required Reading (MANDATORY)
+3. Create CMakeLists.txt with JUCE 8 integration
+4. Create Source/PluginProcessor.{h,cpp} with APVTS
+5. Implement ALL parameters from parameter-spec.md
+6. Return JSON report with status and file list
 
-Build verification handled by workflow after agent completes.
-  `,
+Build verification handled by orchestrator after you complete.
+  `
 });
 ```
 
@@ -302,6 +277,32 @@ Skill({
 **Why foundation-shell-agent doesn't verify builds:**
 - Runs in fresh context with limited tools (no Bash)
 - Doesn't know build system architecture
+
+### 6b. Semantic Validation via validation-agent
+
+**After build verification succeeds, invoke validation-agent for semantic review:**
+
+```typescript
+console.log("\nInvoking validation-agent for semantic review...");
+const validationResult = invokeValidationAgent(pluginName, 2);
+const validation = parseValidationReport(validationResult);
+
+if (validation.status === "FAIL" && !validation.continue_to_next_stage) {
+  presentValidationFailureMenu(validation);
+  return; // Block until user resolves
+}
+
+console.log(`✓ Validation ${validation.status}: ${validation.recommendation}`);
+```
+
+**validation-agent checks for Stage 2:**
+- CMakeLists.txt uses appropriate JUCE modules
+- JUCE 8 patterns followed (ParameterID format, header generation)
+- All parameters from parameter-spec.md implemented
+- Parameter IDs match spec exactly (zero-drift)
+- Code organization follows JUCE best practices
+
+**Validation is advisory:** If status is FAIL, user can choose to continue anyway or fix issues.
 - Would require understanding monorepo structure
 - Separation of concerns: agents create files, build-automation compiles
 

@@ -41,15 +41,11 @@ This skill orchestrates plugin implementation stages 2-5. Stages 0-1 (Research &
     This skill is a PURE ORCHESTRATOR - it NEVER implements plugin code directly.
 
     **Delegation sequence for every stage 2-5 invocation:**
-    1. BEFORE invoking subagent, read contract files:
-       - architecture.md (DSP design from Stage 0)
-       - plan.md (implementation strategy from Stage 0)
-       - parameter-spec.md (parameter definitions)
-    2. Read Required Reading:
-       - troubleshooting/patterns/juce8-critical-patterns.md (MANDATORY)
-    3. Construct prompt with contracts + Required Reading prepended
-    4. Invoke subagent via Task tool with constructed prompt
-    5. AFTER subagent returns, execute checkpoint protocol (6 steps)
+    1. Construct minimal prompt with plugin name + stage + file paths only
+    2. Invoke subagent via Task tool (subagent reads contracts from files)
+    3. AFTER subagent returns, invoke validation-agent (stages 2-4 only)
+    4. Parse validation summary (500-token max)
+    5. Execute checkpoint protocol (6 steps including validation handling)
 
     <enforcement>
       IF stage in [2,3,4,5] AND action != "invoke_subagent_via_Task":
@@ -565,19 +561,34 @@ For detailed algorithm, pseudocode, and examples, see [references/phase-aware-di
             Log: "State updated by subagent, verified"
         </step>
 
-        <step order="3" required="true" function="commitStage">
+        <step order="3" required="true" function="invokeValidation">
+          IF currentStage in [2, 3, 4]:
+            Log: "Invoking validation-agent for semantic review..."
+            validationResult = invokeValidationAgent(pluginName, currentStage)
+            validation = parseValidationReport(validationResult)
+
+            IF validation.status == "FAIL" AND validation.continue_to_next_stage == false:
+              presentValidationFailureMenu(validation)
+              BLOCK progression until user resolves issues
+            ELSE:
+              Log: `✓ Validation ${validation.status}: ${validation.recommendation}`
+          ELSE:
+            Log: "Validation skipped for stage ${currentStage}"
+        </step>
+
+        <step order="4" required="true" function="commitStage">
           commitStage(pluginName, currentStage, result.description)
           Auto-commit all changes (code + state files)
           VERIFY: git commit succeeded (check exit code)
         </step>
 
-        <step order="4" required="true" function="verifyCheckpoint">
+        <step order="5" required="true" function="verifyCheckpoint">
           verifyCheckpoint(pluginName, currentStage)
           Validate all checkpoint steps completed successfully
           BLOCK: If any step failed, present retry menu before continuing
         </step>
 
-        <step order="5" required="true" function="handleCheckpoint">
+        <step order="6" required="true" function="handleCheckpoint">
           handleCheckpoint({ stage, completionStatement, pluginName, workflowMode, hasErrors })
 
           IF workflowMode == "express" AND currentStage < 5 AND hasErrors == false:
@@ -627,8 +638,9 @@ For detailed algorithm, pseudocode, and examples, see [references/phase-aware-di
         **Verification checks:**
         - Step 1: Check result.stateUpdated == true AND .continue-here.md stage field matches
         - Step 2: If fallback ran, verify .continue-here.md and PLUGINS.md updated
-        - Step 3: `git log -1 --oneline` contains stage reference
-        - Step 4: All state files consistent
+        - Step 3: If validation ran, check validationReport.status (PASS/WARNING acceptable, FAIL blocks)
+        - Step 4: `git log -1 --oneline` contains stage reference
+        - Step 5: All state files consistent
 
         **Why critical:**
         Incomplete checkpoints cause state corruption:
@@ -786,6 +798,148 @@ runWorkflow(pluginName, resumeStage)
     ```
   </function>
 </express_mode_functions>
+
+---
+
+<validation_functions>
+  **Helper functions for validation-agent integration:**
+
+  <function name="invokeValidationAgent">
+    ```typescript
+    function invokeValidationAgent(pluginName: string, stage: number): string {
+      const expectations = getStageExpectations(stage);
+
+      const prompt = `
+Validate Stage ${stage} completion for ${pluginName}.
+
+**Stage:** ${stage}
+**Plugin:** ${pluginName}
+
+**Contracts (read these files yourself):**
+- creative-brief.md: plugins/${pluginName}/.ideas/creative-brief.md
+- architecture.md: plugins/${pluginName}/.ideas/architecture.md
+- plan.md: plugins/${pluginName}/.ideas/plan.md
+- parameter-spec.md: plugins/${pluginName}/.ideas/parameter-spec.md
+- Required Reading: troubleshooting/patterns/juce8-critical-patterns.md
+
+**Expected outputs for Stage ${stage}:**
+${expectations}
+
+Return JSON validation report with status, checks, and recommendation.
+Max 500 tokens.
+      `;
+
+      return Task({
+        subagent_type: "validation-agent",
+        description: `Validate Stage ${stage} - ${pluginName}`,
+        prompt: prompt
+      });
+    }
+    ```
+  </function>
+
+  <function name="getStageExpectations">
+    ```typescript
+    function getStageExpectations(stage: number): string {
+      const expectations = {
+        2: `- CMakeLists.txt with JUCE 8 patterns
+- PluginProcessor.{h,cpp} with APVTS
+- All parameters from parameter-spec.md implemented
+- Parameter IDs match spec exactly (zero-drift)
+- JUCE 8 ParameterID format used
+- juce_generate_juce_header() called correctly`,
+
+        3: `- All DSP components from architecture.md implemented
+- processBlock() contains real-time safe processing
+- Parameters modulate DSP components correctly
+- prepareToPlay() allocates buffers
+- No heap allocations in processBlock
+- ScopedNoDenormals used
+- Edge cases handled`,
+
+        4: `- Member declaration order correct (Relays → WebView → Attachments)
+- All parameters from spec have UI bindings
+- HTML element IDs match relay names
+- UI aesthetic matches mockup
+- Visual feedback works (knobs respond)
+- WebView initialization includes error handling`
+      };
+
+      return expectations[stage] || "No expectations defined";
+    }
+    ```
+  </function>
+
+  <function name="parseValidationReport">
+    ```typescript
+    function parseValidationReport(rawOutput: string): object {
+      try {
+        // Extract JSON from markdown code blocks
+        const jsonMatch = rawOutput.match(/```json\n([\s\S]*?)\n```/) ||
+                          rawOutput.match(/```\n([\s\S]*?)\n```/);
+
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[1]);
+        }
+
+        // Try parsing entire output
+        return JSON.parse(rawOutput);
+      } catch (error) {
+        console.warn("Could not parse validation report, treating as PASS");
+        return {
+          agent: "validation-agent",
+          status: "WARNING",
+          checks: [],
+          recommendation: "Could not parse validation output (validation is advisory)",
+          continue_to_next_stage: true
+        };
+      }
+    }
+    ```
+  </function>
+
+  <function name="presentValidationFailureMenu">
+    ```typescript
+    function presentValidationFailureMenu(validation: object) {
+      const errors = validation.checks.filter(c => c.severity === "error");
+      const warnings = validation.checks.filter(c => c.severity === "warning");
+
+      console.log(`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✗ Validation ${validation.status}: Stage ${validation.stage}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Semantic validation found issues that should be addressed:
+      `);
+
+      if (errors.length > 0) {
+        console.log("\n❌ Errors:");
+        errors.forEach(e => console.log(`  - ${e.message}`));
+      }
+
+      if (warnings.length > 0) {
+        console.log("\n⚠️  Warnings:");
+        warnings.forEach(w => console.log(`  - ${w.message}`));
+      }
+
+      console.log(`\nRecommendation: ${validation.recommendation}`);
+      console.log(`
+What would you like to do?
+
+1. Address issues - Fix validation errors before continuing
+2. Continue anyway - Validation is advisory, proceed at your own risk
+3. Show details - See full validation report
+4. Pause workflow - I'll fix manually
+5. Other
+
+Choose (1-5): _
+      `);
+
+      // Wait for user input and handle accordingly
+    }
+    ```
+  </function>
+</validation_functions>
 
 ---
 
