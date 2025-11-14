@@ -7,6 +7,7 @@ juce_add_plugin(Scatter
     PLUGIN_CODE Scat
     FORMATS VST3 AU Standalone
     PRODUCT_NAME "Scatter"
+    NEEDS_WEB_BROWSER TRUE  # Required for VST3 WebView support (Pattern #9)
 )
 
 # Source files
@@ -47,27 +48,23 @@ target_link_libraries(Scatter
 # Generate JuceHeader.h (JUCE 8 requirement - Pattern #1)
 juce_generate_juce_header(Scatter)
 
-# WebView UI Resources (uncommented by gui-agent if WebView UI used)
-# juce_add_binary_data(Scatter_UIResources
-#     SOURCES
-#         Source/ui/public/index.html
-#         Source/ui/public/js/juce/index.js
-# )
-#
-# target_link_libraries(Scatter
-#     PRIVATE
-#         Scatter_UIResources
-# )
+# WebView UI Resources
+juce_add_binary_data(Scatter_UIResources
+    SOURCES
+        Source/ui/public/index.html
+        Source/ui/public/js/juce/index.js
+        Source/ui/public/js/juce/check_native_interop.js
+)
+
+target_link_libraries(Scatter
+    PRIVATE
+        Scatter_UIResources
+)
 
 # Compile definitions
 target_compile_definitions(Scatter
     PUBLIC
         JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_WEB_BROWSER=1  # Enable WebView (Pattern #3)
+        JUCE_USE_CURL=0     # Disable CURL (not needed for local HTML)
 )
-
-# WebView support (uncommented by gui-agent if WebView UI used)
-# target_compile_definitions(Scatter
-#     PUBLIC
-#         JUCE_WEB_BROWSER=1
-#         JUCE_USE_CURL=0
-# )
