@@ -2,7 +2,7 @@
 
 ## Status
 - **Current Status:** 📦 Installed
-- **Version:** 1.0.0
+- **Version:** 1.0.1
 - **Type:** Audio Effect (Hard Clipper)
 - **Complexity:** 4.4
 
@@ -16,10 +16,11 @@
 - **2025-11-13 (Stage 4):** GUI complete - WebView UI with meters, parameter binding (all 3 phases)
 - **2025-11-13 (Stage 5):** Validation complete - 5 factory presets, CHANGELOG.md generated
 - **2025-11-13 (v1.0.0):** Installed to system folders (VST3 + AU)
+- **2025-11-15 (v1.0.1):** Fixed frozen WebView UI controls - Added missing check_native_interop.js
 
 ## Known Issues
 
-None
+None (v1.0.1 fixed UI interaction issue)
 
 ## Additional Notes
 

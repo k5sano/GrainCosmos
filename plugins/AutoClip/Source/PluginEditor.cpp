@@ -94,6 +94,15 @@ AutoClipAudioProcessorEditor::getResource(const juce::String& url)
         };
     }
 
+    // JUCE native interop checker (Pattern #13)
+    if (url == "/js/juce/check_native_interop.js") {
+        return juce::WebBrowserComponent::Resource {
+            makeVector(BinaryData::check_native_interop_js,
+                      BinaryData::check_native_interop_jsSize),
+            juce::String("text/javascript")
+        };
+    }
+
     // Resource not found
     juce::Logger::writeToLog("AutoClip: Resource not found: " + url);
     return std::nullopt;
