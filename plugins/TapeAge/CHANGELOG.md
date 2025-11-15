@@ -4,6 +4,21 @@ All notable changes to TapeAge will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.1] - 2025-11-15
+
+### Fixed
+
+- **Trim Knob UI Improvements:** Enhanced INPUT/OUTPUT trim knob positioning and visual design
+  - Improved vertical spacing: moved knobs higher (top: -70px from -50px) for better centering between VU meter and main knobs
+  - Fixed label positioning: moved from top: -65px to top: -18px to eliminate VU meter overlap and position properly above knobs
+  - Enhanced visual clarity: replaced confusing screw-slot aesthetic with scaled-down brass knob design matching main knobs
+  - Added gold pointer line indicator (2px × 16px) making rotation direction immediately obvious
+  - Applied same brushed metal texture and radial gradients as main knobs for visual consistency
+
+**Root Cause:** Original design used cramped positioning (-50px) and horizontal slot indicator that didn't clearly show rotation direction. Labels overlapped VU meter instead of being positioned above trim knobs.
+
+**Testing:** Visual verification in Standalone mode confirmed improved spacing and aesthetic consistency with main brass knobs.
+
 ## [1.1.0] - 2025-11-13
 
 ### Added
