@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GrainCosmos UI Mockup v1</title>
+
+  <style>
+    /* CRITICAL: WebView constraints */
+    html {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+
+      /* Native application feel */
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
+      overflow: hidden;
+
+      /* Cosmic background */
+      background: radial-gradient(circle at center, #1a1e3a 0%, #0a0e1a 100%);
+      color: #ffd89b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+      /* Center plugin frame in browser for testing */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    /* Plugin frame - fixed size matching window spec */
+    .plugin-frame {
+      width: 800px;
+      height: 500px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      border: 2px solid #0d1128;
+    }
+
+    /* Background layers */
+    .background-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cosmic-gradient {
+      background: radial-gradient(circle at center, #1a1e3a 0%, #0a0e1a 100%);
+    }
+
+    .scan-lines {
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(155, 77, 202, 0.02) 2px,
+        rgba(155, 77, 202, 0.02) 4px
+      );
+    }
+
+    .vignette {
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+    }
+
+    /* Header */
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      background: linear-gradient(to bottom, rgba(26, 30, 58, 0.5), transparent);
+    }
+
+    .plugin-title {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: #ffd89b;
+      text-shadow: 0 2px 8px rgba(155, 77, 202, 0.5);
+    }
+
+    /* Controls container */
+    .controls-container {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* Knob styles */
+    .knob-wrapper {
+      position: absolute;
+      width: 80px;
+      height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 50ms ease-out;
+      transform-origin: center center;
+    }
+
+    /* Fixed lighting layer (doesn't rotate) */
+    .knob-lighting {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow:
+        inset -3px -3px 8px rgba(0, 0, 0, 0.6),
+        inset 3px 3px 8px rgba(255, 255, 255, 0.15),
+        0 4px 12px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Rotating body layer */
+    .knob-body {
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #0f1428, #0a0d1a);
+      box-shadow:
+        inset -2px -2px 4px rgba(0, 0, 0, 0.4),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.05);
+      transition: transform 50ms ease-out;
+      z-index: 1;
+    }
+
+    /* Knob texture/ridges */
+    .knob-body::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      background: repeating-conic-gradient(
+        from 0deg,
+        rgba(13, 17, 40, 1) 0deg 10deg,
+        rgba(18, 23, 50, 1) 10deg 20deg
+      );
+    }
+
+    /* Purple gradient indicator */
+    .knob-indicator {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 20px;
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      border-radius: 3px;
+      box-shadow: 0 0 8px rgba(155, 77, 202, 0.8);
+    }
+
+    .knob-label {
+      margin-top: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffd89b;
+    }
+
+    /* Character knob glow */
+    .knob.character .knob-lighting {
+      box-shadow:
+        inset -3px -3px 8px rgba(0, 0, 0, 0.6),
+        inset 3px 3px 8px rgba(255, 255, 255, 0.15),
+        0 0 25px rgba(155, 77, 202, 0.6),
+        0 0 50px rgba(155, 77, 202, 0.3);
+    }
+
+    .knob.character .knob-indicator {
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      box-shadow: 0 0 12px rgba(180, 126, 255, 1);
+    }
+
+    /* Toggle switch styles */
+    .toggle-wrapper {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 60px;
+      height: 30px;
+      background: linear-gradient(to bottom, #0a0d1a, #080c18);
+      border-radius: 15px;
+      border: 2px solid #0d1128;
+      cursor: pointer;
+      transition: all 200ms ease;
+    }
+
+    .toggle-switch::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(to bottom, #1a1e3a, #0d1128);
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      transition: all 200ms ease;
+    }
+
+    .toggle-switch.active {
+      background: linear-gradient(to bottom, #2a1e3a, #1a0d2a);
+      border-color: #9b4dca;
+    }
+
+    .toggle-switch.active::before {
+      left: 33px;
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      box-shadow: 0 0 10px rgba(155, 77, 202, 0.8);
+    }
+
+    .toggle-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffd89b;
+    }
+
+    /* Debug monitor (test HTML only) */
+    .debug-monitor {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 8px 12px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      min-width: 180px;
+      z-index: 10000;
+      pointer-events: none;
+    }
+
+    .debug-label {
+      color: #666;
+      font-size: 9px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .debug-param {
+      font-weight: bold;
+      color: #0f0;
+    }
+
+    .debug-value {
+      color: #fff;
+      margin-top: 2px;
+    }
+
+    .debug-normalized {
+      color: #888;
+      font-size: 10px;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Plugin frame with fixed dimensions -->
+  <div class="plugin-frame">
+    <!-- Background layers -->
+    <div class="background-layer cosmic-gradient"></div>
+    <div class="background-layer scan-lines"></div>
+    <div class="background-layer vignette"></div>
+
+    <!-- Header -->
+    <div class="header">
+      <div class="plugin-title">GRAINCOSMOS</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-container">
+      <!-- Top Row (y: 80) -->
+      <!-- DELAY: x: 60 -->
+      <div class="knob-wrapper" style="left: 60px; top: 80px;">
+        <div class="knob" id="knob-delay">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">DELAY</div>
+      </div>
+
+      <!-- GRAIN: x: 220 -->
+      <div class="knob-wrapper" style="left: 220px; top: 80px;">
+        <div class="knob" id="knob-grain">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">GRAIN</div>
+      </div>
+
+      <!-- ENVELOPE: x: 380 -->
+      <div class="knob-wrapper" style="left: 380px; top: 80px;">
+        <div class="knob" id="knob-envelope">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">ENVELOPE</div>
+      </div>
+
+      <!-- DISTORTION: x: 540 -->
+      <div class="knob-wrapper" style="left: 540px; top: 80px;">
+        <div class="knob" id="knob-distortion">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">DISTORTION</div>
+      </div>
+
+      <!-- Bottom Row (y: 240) -->
+      <!-- FEEDBACK: x: 60 -->
+      <div class="knob-wrapper" style="left: 60px; top: 240px;">
+        <div class="knob" id="knob-feedback">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">FEEDBACK</div>
+      </div>
+
+      <!-- CHAOS: x: 220 -->
+      <div class="knob-wrapper" style="left: 220px; top: 240px;">
+        <div class="knob" id="knob-chaos">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">CHAOS</div>
+      </div>
+
+      <!-- CHARACTER: x: 380 (with glow) -->
+      <div class="knob-wrapper" style="left: 380px; top: 240px;">
+        <div class="knob character" id="knob-character">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">CHARACTER</div>
+      </div>
+
+      <!-- MIX: x: 540 -->
+      <div class="knob-wrapper" style="left: 540px; top: 240px;">
+        <div class="knob" id="knob-mix">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-indicator"></div>
+          </div>
+        </div>
+        <div class="knob-label">MIX</div>
+      </div>
+
+      <!-- FREEZE: x: 640, y: 275 -->
+      <div class="toggle-wrapper" style="left: 640px; top: 275px;">
+        <div class="toggle-switch" id="toggle-freeze"></div>
+        <div class="toggle-label">FREEZE</div>
+      </div>
+
+      <!-- Footer (y: 410) -->
+      <!-- SYNC: x: 60 -->
+      <div class="toggle-wrapper" style="left: 60px; top: 425px;">
+        <div class="toggle-switch" id="toggle-sync"></div>
+        <div class="toggle-label">SYNC</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug monitor (test HTML only) -->
+  <div class="debug-monitor">
+    <div class="debug-label">PARAMETER MONITOR</div>
+    <div class="debug-param" id="debugParam">—</div>
+    <div class="debug-value" id="debugValue">—</div>
+    <div class="debug-normalized" id="debugNormalized">—</div>
+  </div>
+
+  <script>
+    // Mock JUCE backend for browser testing
+    window.Juce = {
+      getSliderState: (id) => ({
+        normalisedValue: 0.5,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        }
+      }),
+      getToggleState: (id) => ({
+        value: false,
+        valueChangedEvent: {
+          addListener: (fn) => console.log(`Listener added for ${id}`)
+        }
+      })
+    };
+
+    // Disable context menu (REQUIRED)
+    document.addEventListener("contextmenu", function(e) {
+      e.preventDefault();
+      return false;
+    });
+
+    // Parameter state
+    const parameters = {
+      delay: { value: 0.25, min: 0.0, max: 2.0 },
+      grain: { value: 0.2, min: 10.0, max: 500.0 },
+      envelope: { value: 0.5, min: 0.0, max: 1.0 },
+      distortion: { value: 0.0, min: 0.0, max: 100.0 },
+      feedback: { value: 0.4, min: 0.0, max: 95.0 },
+      chaos: { value: 0.2, min: 0.0, max: 100.0 },
+      character: { value: 0.5, min: 0.0, max: 100.0 },
+      mix: { value: 0.3, min: 0.0, max: 100.0 },
+      freeze: { value: false },
+      sync: { value: false }
+    };
+
+    // Format value for display
+    function formatValue(paramId, value) {
+      const formats = {
+        delay: (v) => v.toFixed(2) + 's',
+        grain: (v) => v.toFixed(0) + 'ms',
+        envelope: (v) => v.toFixed(2),
+        distortion: (v) => v.toFixed(1) + '%',
+        feedback: (v) => v.toFixed(1) + '%',
+        chaos: (v) => v.toFixed(1) + '%',
+        character: (v) => v.toFixed(1) + '%',
+        mix: (v) => v.toFixed(1) + '%'
+      };
+      return formats[paramId] ? formats[paramId](value) : value.toString();
+    }
+
+    // Update debug monitor
+    function updateDebugMonitor(paramId, value, normalizedValue) {
+      document.getElementById('debugParam').textContent = paramId.toUpperCase();
+      document.getElementById('debugValue').textContent = formatValue(paramId, value);
+      document.getElementById('debugNormalized').textContent = `${(normalizedValue * 100).toFixed(1)}%`;
+    }
+
+    // Convert parameter value to normalized (0-1)
+    function normalizeValue(value, min, max) {
+      return (value - min) / (max - min);
+    }
+
+    // Convert normalized to parameter value
+    function denormalizeValue(normalized, min, max) {
+      return min + (normalized * (max - min));
+    }
+
+    // Update knob rotation
+    function updateKnobRotation(paramId) {
+      const param = parameters[paramId];
+      const normalized = normalizeValue(param.value, param.min, param.max);
+      const degrees = -135 + (normalized * 270);
+
+      const knobBody = document.querySelector(`#knob-${paramId} .knob-body`);
+      if (knobBody) {
+        knobBody.style.transform = `rotate(${degrees}deg)`;
+      }
+    }
+
+    // Knob interaction
+    let activeKnob = null;
+    let startY = 0;
+    let startValue = 0;
+
+    document.querySelectorAll('.knob').forEach(knob => {
+      const paramId = knob.id.replace('knob-', '');
+
+      knob.addEventListener('mousedown', (e) => {
+        activeKnob = paramId;
+        startY = e.clientY;
+        startValue = parameters[paramId].value;
+        e.preventDefault();
+      });
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!activeKnob) return;
+
+      const param = parameters[activeKnob];
+      const deltaY = startY - e.clientY;
+      const range = param.max - param.min;
+      const sensitivity = 0.005;
+
+      let newValue = startValue + (deltaY * range * sensitivity);
+      newValue = Math.max(param.min, Math.min(param.max, newValue));
+
+      param.value = newValue;
+      updateKnobRotation(activeKnob);
+
+      const normalized = normalizeValue(newValue, param.min, param.max);
+      updateDebugMonitor(activeKnob, newValue, normalized);
+    });
+
+    document.addEventListener('mouseup', () => {
+      activeKnob = null;
+    });
+
+    // Toggle interaction
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        const paramId = toggle.id.replace('toggle-', '');
+        parameters[paramId].value = !parameters[paramId].value;
+        toggle.classList.toggle('active', parameters[paramId].value);
+        updateDebugMonitor(paramId, parameters[paramId].value, parameters[paramId].value ? 1.0 : 0.0);
+      });
+    });
+
+    // Initialize knobs
+    Object.keys(parameters).forEach(paramId => {
+      if (paramId !== 'freeze' && paramId !== 'sync') {
+        updateKnobRotation(paramId);
+      }
+    });
+
+    // Initialize toggles
+    document.getElementById('toggle-freeze').classList.toggle('active', parameters.freeze.value);
+    document.getElementById('toggle-sync').classList.toggle('active', parameters.sync.value);
+
+    // Mouse wheel support for knobs
+    document.querySelectorAll('.knob').forEach(knob => {
+      const paramId = knob.id.replace('knob-', '');
+
+      knob.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const param = parameters[paramId];
+        const range = param.max - param.min;
+        const sensitivity = 0.001;
+        const delta = -e.deltaY;
+
+        let newValue = param.value + (delta * range * sensitivity);
+        newValue = Math.max(param.min, Math.min(param.max, newValue));
+
+        param.value = newValue;
+        updateKnobRotation(paramId);
+
+        const normalized = normalizeValue(newValue, param.min, param.max);
+        updateDebugMonitor(paramId, newValue, normalized);
+      }, { passive: false });
+    });
+
+    // Log ready
+    console.log('GrainCosmos UI Mockup v1 loaded');
+    console.log('Controls:', Object.keys(parameters));
+  </script>
+</body>
+</html>

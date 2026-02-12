@@ -1,0 +1,192 @@
+# v1 UI Design Specification
+# Generated: 2025-02-12
+# Plugin: GrainCosmos
+
+window:
+  width: 800
+  height: 500
+  resizable: false
+
+colors:
+  background: "#0a0e1a"
+  surface: "#080c18"
+  control_surface: "#0d1128"
+  primary: "#9b4dca"
+  primary_light: "#b47eff"
+  secondary: "#8a3cc8"
+  text: "#ffd89b"
+  text_dim: "#c4a576"
+
+typography:
+  header: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  body: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+  size:
+    large: "14px"
+    medium: "12px"
+    small: "10px"
+  letter_spacing:
+    wide: "2px"
+    normal: "1px"
+
+layout:
+  type: horizontal-sections
+  sections:
+    - id: header
+      height: 60
+      background: "radial-gradient(circle at center, #1a1e3a 0%, #0a0e1a 100%)"
+      controls: [title]
+    - id: top_row
+      y: 80
+      height: 140
+      controls: [delay, grain, envelope, distortion]
+    - id: bottom_row
+      y: 240
+      height: 140
+      controls: [feedback, chaos, character, freeze]
+    - id: footer
+      y: 410
+      height: 60
+      controls: [mix, sync]
+
+controls:
+  - id: delay
+    type: rotary-knob
+    label: "DELAY"
+    parameter: "delay_time"
+    range: [0.0, 2.0]
+    unit: "s"
+    default: 0.5
+    decimals: 2
+    skew: 0.5
+    position: {x: 60, y: 80}
+    size: {width: 80, height: 100}
+
+  - id: grain
+    type: rotary-knob
+    label: "GRAIN"
+    parameter: "grain_size"
+    range: [10.0, 500.0]
+    unit: "ms"
+    default: 100.0
+    decimals: 0
+    skew: 0.4
+    position: {x: 220, y: 80}
+    size: {width: 80, height: 100}
+
+  - id: envelope
+    type: rotary-knob
+    label: "ENVELOPE"
+    parameter: "envelope_shape"
+    range: [0.0, 1.0]
+    unit: ""
+    default: 0.5
+    decimals: 2
+    position: {x: 380, y: 80}
+    size: {width: 80, height: 100}
+
+  - id: distortion
+    type: rotary-knob
+    label: "DISTORTION"
+    parameter: "distortion_amount"
+    range: [0.0, 100.0]
+    unit: "%"
+    default: 0.0
+    decimals: 1
+    position: {x: 540, y: 80}
+    size: {width: 80, height: 100}
+
+  - id: feedback
+    type: rotary-knob
+    label: "FEEDBACK"
+    parameter: "feedback"
+    range: [0.0, 95.0]
+    unit: "%"
+    default: 40.0
+    decimals: 1
+    position: {x: 60, y: 240}
+    size: {width: 80, height: 100}
+
+  - id: chaos
+    type: rotary-knob
+    label: "CHAOS"
+    parameter: "chaos"
+    range: [0.0, 100.0]
+    unit: "%"
+    default: 20.0
+    decimals: 1
+    position: {x: 220, y: 240}
+    size: {width: 80, height: 100}
+
+  - id: character
+    type: rotary-knob
+    label: "CHARACTER"
+    parameter: "character"
+    range: [0.0, 100.0]
+    unit: "%"
+    default: 50.0
+    decimals: 1
+    special_effect: "glow"
+    glow_color: "#9b4dca"
+    glow_intensity: 0.6
+    position: {x: 380, y: 240}
+    size: {width: 80, height: 100}
+
+  - id: mix
+    type: rotary-knob
+    label: "MIX"
+    parameter: "mix"
+    range: [0.0, 100.0]
+    unit: "%"
+    default: 30.0
+    decimals: 1
+    position: {x: 540, y: 240}
+    size: {width: 80, height: 100}
+
+  - id: freeze
+    type: toggle
+    label: "FREEZE"
+    parameter: "freeze"
+    parameter_type: bool
+    default: false
+    position: {x: 640, y: 275}
+    size: {width: 60, height: 30}
+
+  - id: sync
+    type: toggle
+    label: "SYNC"
+    parameter: "tempo_sync"
+    parameter_type: bool
+    default: false
+    position: {x: 60, y: 425}
+    size: {width: 60, height: 30}
+
+special_elements:
+  - id: cosmic_background
+    type: texture
+    description: "Deep navy radial gradient with subtle scan lines and vignette"
+    background: "radial-gradient(circle at center, #1a1e3a 0%, #0a0e1a 100%)"
+    overlay: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(155, 77, 202, 0.02) 2px, rgba(155, 77, 202, 0.02) 4px)"
+    vignette: "radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%)"
+
+  - id: character_glow
+    type: glow_effect
+    target: "character"
+    color: "#9b4dca"
+    blur: 20px
+    spread: 5px
+    opacity: 0.6
+
+styling:
+  knob_style: "skeuomorphic_cosmic"
+  knob_depth: true
+  knob_shadow_multiple: true
+  indicator_style: "purple_gradient"
+  toggle_style: "slide_switch"
+  text_uppercase: true
+  text_wide_spacing: true
+
+notes:
+  - All positions in pixels from top-left (0,0)
+  - Parameter IDs must match PluginProcessor APVTS
+  - Character knob has special glow effect for focal differentiation
+  - Cosmic theme with vintage hardware depth and tactile feel
