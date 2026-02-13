@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrainCosmos</title>
+
+  <style>
+    /* ====================================================================
+       CRITICAL CSS CONSTRAINTS
+       ==================================================================== */
+
+    /* ⚠️ CRITICAL: Use 100%, NOT 100vh */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ====================================================================
+       NATIVE APPLICATION FEEL
+       ==================================================================== */
+
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      -webkit-touch-callout: none;
+      cursor: default;
+      -webkit-tap-highlight-color: transparent;
+
+      background: #1a1a1a;
+      color: #ffd89b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    /* ====================================================================
+       LAYOUT STRUCTURE
+       ==================================================================== */
+
+    .plugin-frame {
+      width: 800px;
+      height: 500px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      border: 3px solid #3a3a2a;
+      border-radius: 4px;
+    }
+
+    /* ========================================
+       BACKGROUND LAYERS - Vintage Olive Chassis
+       ======================================== */
+
+    .background-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .vintage-chassis {
+      background: linear-gradient(135deg, #5a5a4a 0%, #4a4a3a 25%, #4a4a3a 50%, #3a3a2a 75%, #2a2a1a 100%);
+    }
+
+    .metal-texture {
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 1px,
+        rgba(0, 0, 0, 0.02) 1px,
+        rgba(0, 0, 0, 0.02) 2px
+      );
+    }
+
+    .scratches {
+      opacity: 0.08;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    .rust-patches {
+      background:
+        radial-gradient(ellipse 120px 80px at 0% 0%, rgba(139, 69, 19, 0.15) 0%, transparent 70%),
+        radial-gradient(ellipse 100px 90px at 100% 0%, rgba(160, 82, 45, 0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 110px 100px at 0% 100%, rgba(107, 53, 16, 0.14) 0%, transparent 70%),
+        radial-gradient(ellipse 130px 85px at 100% 100%, rgba(139, 69, 19, 0.13) 0%, transparent 70%),
+        radial-gradient(ellipse 30px 25px at 25% 30%, rgba(160, 82, 45, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 35px 30px at 75% 60%, rgba(107, 53, 16, 0.09) 0%, transparent 70%),
+        radial-gradient(ellipse 25px 20px at 45% 80%, rgba(139, 69, 19, 0.07) 0%, transparent 70%);
+    }
+
+    .worn-paint {
+      background:
+        radial-gradient(ellipse 80px 60px at 15% 45%, rgba(61, 61, 45, 0.25) 0%, transparent 60%),
+        radial-gradient(ellipse 70px 50px at 85% 35%, rgba(61, 61, 45, 0.2) 0%, transparent 60%),
+        radial-gradient(ellipse 90px 70px at 50% 90%, rgba(61, 61, 45, 0.22) 0%, transparent 60%);
+    }
+
+    .chipped-edges {
+      box-shadow:
+        inset 3px 3px 0 rgba(61, 61, 45, 0.6),
+        inset -3px 3px 0 rgba(61, 61, 45, 0.5),
+        inset 3px -3px 0 rgba(61, 61, 45, 0.5),
+        inset -3px -3px 0 rgba(61, 61, 45, 0.6);
+      pointer-events: none;
+    }
+
+    .grease-smudges {
+      background:
+        radial-gradient(ellipse 50px 40px at 100px 120px, rgba(42, 42, 26, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 45px 35px at 260px 120px, rgba(42, 42, 26, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 48px 38px at 100px 280px, rgba(42, 42, 26, 0.14) 0%, transparent 60%),
+        radial-gradient(ellipse 52px 42px at 420px 280px, rgba(42, 42, 26, 0.16) 0%, transparent 60%),
+        radial-gradient(ellipse 46px 36px at 580px 280px, rgba(42, 42, 26, 0.13) 0%, transparent 60%);
+    }
+
+    .vignette {
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.3) 100%);
+    }
+
+    /* ========================================
+       HEADER - Japanese Brush Font
+       ======================================== */
+
+    .header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      background: linear-gradient(to bottom, rgba(90, 90, 74, 0.6), transparent);
+    }
+
+    .plugin-title {
+      font-family: 'Brush Script MT', 'Hiragino Mincho ProN', 'Yu Mincho', 'Segoe Script', cursive, serif;
+      font-size: 32px;
+      font-weight: normal;
+      font-style: normal;
+      letter-spacing: 1px;
+      color: #ffd89b;
+      text-shadow:
+        2px 2px 4px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(255, 216, 155, 0.3);
+      transform: rotate(-1deg);
+    }
+
+    /* ========================================
+       CONTROLS
+       ======================================== */
+
+    .controls-container {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* ========================================
+       V3: Retro Silver Instrument Knobs
+       ======================================== */
+
+    .knob-wrapper {
+      position: absolute;
+      width: 80px;
+      height: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .knob {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 50ms ease-out;
+      transform-origin: center center;
+    }
+
+    .knob-lighting {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow:
+        inset -4px -4px 10px rgba(0, 0, 0, 0.6),
+        inset 4px 4px 10px rgba(255, 255, 255, 0.25),
+        0 5px 15px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .knob-body {
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      transition: transform 50ms ease-out;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .knob-body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(ellipse 50% 30% at 50% 35%, rgba(255, 255, 255, 0.6) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 25% at 30% 25%, rgba(255, 255, 255, 0.4) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 20% at 70% 40%, rgba(255, 255, 255, 0.3) 0%, transparent 70%),
+        radial-gradient(circle at 50% 45%, #e8e8e8 0%, #c0c0c0 40%, #a0a0a0 100%);
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.3),
+        inset 0 -2px 4px rgba(64, 64, 64, 0.3);
+    }
+
+    .knob-body::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 1px,
+          rgba(144, 144, 144, 0.15) 1px,
+          rgba(144, 144, 144, 0.15) 2px
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          transparent,
+          transparent 1px,
+          rgba(144, 144, 144, 0.15) 1px,
+          rgba(144, 144, 144, 0.15) 2px
+        );
+      mask-image: radial-gradient(circle at center, transparent 30%, black 70%);
+      -webkit-mask-image: radial-gradient(circle at center, transparent 30%, black 70%);
+      opacity: 0.8;
+    }
+
+    .knob-inner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 70%;
+      height: 70%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 45%, #f0f0f0 0%, #d0d0d0 60%, #b0b0b0 100%);
+      box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.3);
+      z-index: 2;
+    }
+
+    .knob-inner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6);
+    }
+
+    .knob-indicator {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 5px;
+      height: 18px;
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      border-radius: 3px;
+      box-shadow: 0 0 8px rgba(155, 77, 202, 0.8);
+      z-index: 4;
+    }
+
+    .knob-label {
+      margin-top: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffd89b;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .knob.character .knob-lighting {
+      box-shadow:
+        inset -4px -4px 10px rgba(0, 0, 0, 0.6),
+        inset 4px 4px 10px rgba(255, 255, 255, 0.25),
+        0 0 30px rgba(155, 77, 202, 0.5),
+        0 0 60px rgba(155, 77, 202, 0.3);
+    }
+
+    .knob.character .knob-indicator {
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      box-shadow: 0 0 15px rgba(180, 126, 255, 1);
+    }
+
+    /* Toggle switch styles */
+    .toggle-wrapper {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 60px;
+      height: 30px;
+      background: linear-gradient(to bottom, #2a2a1a, #1a1a0a);
+      border-radius: 15px;
+      border: 2px solid #3a3a2a;
+      cursor: pointer;
+      transition: all 200ms ease;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .toggle-switch::before {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(to bottom, #4a4a3a, #3a3a2a);
+      border-radius: 50%;
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.5),
+        inset 0 1px 2px rgba(255, 255, 255, 0.1);
+      transition: all 200ms ease;
+    }
+
+    .toggle-switch.active {
+      background: linear-gradient(to bottom, #3a2a4a, #2a1a3a);
+      border-color: #9b4dca;
+    }
+
+    .toggle-switch.active::before {
+      left: 33px;
+      background: linear-gradient(to bottom, #b47eff, #9b4dca);
+      box-shadow: 0 0 10px rgba(155, 77, 202, 0.8);
+    }
+
+    .toggle-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffd89b;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="plugin-frame">
+    <!-- Background layers - vintage chassis with aging -->
+    <div class="background-layer vintage-chassis"></div>
+    <div class="background-layer metal-texture"></div>
+    <div class="background-layer scratches"></div>
+    <div class="background-layer rust-patches"></div>
+    <div class="background-layer worn-paint"></div>
+    <div class="background-layer grease-smudges"></div>
+    <div class="background-layer vignette"></div>
+    <div class="background-layer chipped-edges" style="z-index: 10;"></div>
+
+    <!-- Header with Japanese brush font -->
+    <div class="header">
+      <div class="plugin-title">GrainCosmos</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-container">
+      <!-- Top Row (y: 80) -->
+      <div class="knob-wrapper" style="left: 60px; top: 80px;">
+        <div class="knob" id="knob-delay">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">DELAY</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 220px; top: 80px;">
+        <div class="knob" id="knob-grain">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">GRAIN</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 380px; top: 80px;">
+        <div class="knob" id="knob-envelope">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">ENVELOPE</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 540px; top: 80px;">
+        <div class="knob" id="knob-distortion">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">DISTORTION</div>
+      </div>
+
+      <!-- Bottom Row (y: 240) -->
+      <div class="knob-wrapper" style="left: 60px; top: 240px;">
+        <div class="knob" id="knob-feedback">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">FEEDBACK</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 220px; top: 240px;">
+        <div class="knob" id="knob-chaos">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">CHAOS</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 380px; top: 240px;">
+        <div class="knob character" id="knob-character">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">CHARACTER</div>
+      </div>
+
+      <div class="knob-wrapper" style="left: 540px; top: 240px;">
+        <div class="knob" id="knob-mix">
+          <div class="knob-lighting"></div>
+          <div class="knob-body">
+            <div class="knob-inner"></div>
+          </div>
+          <div class="knob-indicator"></div>
+        </div>
+        <div class="knob-label">MIX</div>
+      </div>
+
+      <!-- FREEZE: x: 640, y: 275 -->
+      <div class="toggle-wrapper" style="left: 640px; top: 275px;">
+        <div class="toggle-switch" id="toggle-freeze"></div>
+        <div class="toggle-label">FREEZE</div>
+      </div>
+
+      <!-- SYNC: x: 60 -->
+      <div class="toggle-wrapper" style="left: 60px; top: 425px;">
+        <div class="toggle-switch" id="toggle-sync"></div>
+        <div class="toggle-label">SYNC</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script type="module">
+    import * as Juce from "./js/juce/index.js";
+
+    // Disable right-click context menu
+    document.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      return false;
+    });
+
+    // Disable default drag behaviors
+    document.addEventListener("dragstart", (e) => {
+      e.preventDefault();
+    });
+
+    // Verify JUCE backend is connected
+    if (!window.__JUCE__) {
+      console.error("JUCE backend not available");
+      document.body.innerHTML = "<h1>Error: JUCE backend not connected</h1>";
+      throw new Error("JUCE backend not connected");
+    }
+
+    console.log("JUCE backend connected:", window.__JUCE__.backend);
+
+    // ====================================================================
+    // PARAMETER BINDINGS
+    // ====================================================================
+
+    // SLIDER PARAMETERS (8 knobs)
+
+    const parameters = [
+      { id: 'delay_time', elementId: 'knob-delay' },
+      { id: 'grain_size', elementId: 'knob-grain' },
+      { id: 'envelope_shape', elementId: 'knob-envelope' },
+      { id: 'distortion_amount', elementId: 'knob-distortion' },
+      { id: 'feedback', elementId: 'knob-feedback' },
+      { id: 'chaos', elementId: 'knob-chaos' },
+      { id: 'character', elementId: 'knob-character' },
+      { id: 'mix', elementId: 'knob-mix' }
+    ];
+
+    parameters.forEach(({ id, elementId }) => {
+      const state = Juce.getSliderState(id);
+      const knobBody = document.querySelector(`#${elementId} .knob-body`);
+
+      if (!state || !knobBody) {
+        console.error(`Failed to bind parameter ${id}`);
+        return;
+      }
+
+      let rotation = 0;
+      let lastY = 0;
+      let isDragging = false;
+
+      const updateRotation = (value) => {
+        rotation = -135 + (value * 270);
+        knobBody.style.transform = `rotate(${rotation}deg)`;
+      };
+
+      knobBody.parentElement.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        lastY = e.clientY;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const deltaY = lastY - e.clientY;
+        const sensitivity = 0.002;
+
+        const current = state.getNormalisedValue();
+        let newValue = current + (deltaY * sensitivity);
+        newValue = Math.max(0, Math.min(1, newValue));
+
+        state.setNormalisedValue(newValue);
+        updateRotation(newValue);
+        lastY = e.clientY;
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      state.valueChangedEvent.addListener(() => {
+        updateRotation(state.getNormalisedValue());
+      });
+
+      updateRotation(state.getNormalisedValue());
+    });
+
+    // TOGGLE PARAMETERS (2 switches)
+
+    const toggleParameters = [
+      { id: 'freeze', elementId: 'toggle-freeze' },
+      { id: 'tempo_sync', elementId: 'toggle-sync' }
+    ];
+
+    toggleParameters.forEach(({ id, elementId }) => {
+      const state = Juce.getToggleState(id);
+      const toggleElement = document.getElementById(elementId);
+
+      if (!state || !toggleElement) {
+        console.error(`Failed to bind toggle parameter ${id}`);
+        return;
+      }
+
+      toggleElement.addEventListener('click', () => {
+        const currentValue = state.getValue();
+        const newValue = !currentValue;
+        state.setValue(newValue);
+        toggleElement.classList.toggle('active', newValue);
+      });
+
+      state.valueChangedEvent.addListener(() => {
+        const value = state.getValue();
+        toggleElement.classList.toggle('active', value);
+      });
+
+      const initialValue = state.getValue();
+      toggleElement.classList.toggle('active', initialValue);
+    });
+
+    console.log("GrainCosmos UI initialized");
+  </script>
+</body>
+</html>
