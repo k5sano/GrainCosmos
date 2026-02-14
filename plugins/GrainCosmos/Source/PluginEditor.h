@@ -12,6 +12,10 @@ public:
     void resized() override;
     void paint(juce::Graphics& g) override;
     void loadPreset(int presetId);
+    void saveUserPreset();
+    void scanUserPresets();
+    void loadUserPreset(const juce::File& file);
+    juce::File getPresetsFolder();
 
 private:
     GrainCosmosAudioProcessor& processorRef;
@@ -28,6 +32,10 @@ private:
     juce::Slider releaseSlider;
 
     juce::ComboBox presetSelector;
+    juce::TextButton savePresetButton;
+    juce::StringArray userPresetNames;
+    juce::Array<juce::File> userPresetFiles;
+    int factoryPresetCount = 6;
 
     juce::Label titleLabel;
     juce::Label mixLabel;

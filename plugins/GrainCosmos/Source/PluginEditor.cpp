@@ -19,8 +19,29 @@ GrainCosmosAudioProcessorEditor::GrainCosmosAudioProcessorEditor(GrainCosmosAudi
     presetSelector.addItem("Frozen Ambient", 5);
     presetSelector.addItem("Rhythmic Delay", 6);
     presetSelector.setSelectedId(1, juce::dontSendNotification);
-    presetSelector.onChange = [this]() { loadPreset(presetSelector.getSelectedId()); };
+    presetSelector.onChange = [this]()
+    {
+        int id = presetSelector.getSelectedId();
+        if (id >= 1 && id <= factoryPresetCount)
+        {
+            loadPreset(id);
+        }
+        else
+        {
+            int userIndex = id - factoryPresetCount - 1;
+            if (userIndex >= 0 && userIndex < userPresetFiles.size())
+                loadUserPreset(userPresetFiles[userIndex]);
+        }
+    };
     addAndMakeVisible(presetSelector);
+
+    // Save button
+    savePresetButton.setButtonText("Save");
+    savePresetButton.onClick = [this]() { saveUserPreset(); };
+    addAndMakeVisible(savePresetButton);
+
+    // Scan user presets
+    scanUserPresets();
 
     // Mix slider
     mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -96,7 +117,7 @@ GrainCosmosAudioProcessorEditor::GrainCosmosAudioProcessorEditor(GrainCosmosAudi
     // Pad 4: Feedback x Distortion
     xyPad4->setDefaultAxes(5, 7);
 
-    setSize(1350, 700);
+    setSize(1440, 700);
 }
 
 GrainCosmosAudioProcessorEditor::~GrainCosmosAudioProcessorEditor()
@@ -123,6 +144,9 @@ void GrainCosmosAudioProcessorEditor::resized()
     // Preset selector between title and sliders
     auto presetArea = header.removeFromLeft(160);
     presetSelector.setBounds(presetArea.reduced(5, 15));
+
+    auto saveArea = header.removeFromLeft(60);
+    savePresetButton.setBounds(saveArea.reduced(5, 15));
 
     header.removeFromLeft(10);
 
@@ -298,6 +322,129 @@ void GrainCosmosAudioProcessorEditor::loadPreset(int presetId)
             setParam("limiter_threshold", -1.0f);
             setParam("limiter_release", 100.0f);
             break;
+    }
+}
+
+juce::File GrainCosmosAudioProcessorEditor::getPresetsFolder()
+{
+    auto folder = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                      .getChildFile("GrainCosmos")
+                      .getChildFile("Presets");
+    if (!folder.exists())
+        folder.createDirectory();
+    return folder;
+}
+
+void GrainCosmosAudioProcessorEditor::scanUserPresets()
+{
+    userPresetNames.clear();
+    userPresetFiles.clear();
+
+    // Store current selection
+    int currentId = presetSelector.getSelectedId();
+
+    // Rebuild selector
+    presetSelector.clear();
+    presetSelector.addItem("Default", 1);
+    presetSelector.addItem("Subtle Texture", 2);
+    presetSelector.addItem("Glitch Machine", 3);
+    presetSelector.addItem("Fuzz Madness", 4);
+    presetSelector.addItem("Frozen Ambient", 5);
+    presetSelector.addItem("Rhythmic Delay", 6);
+
+    auto folder = getPresetsFolder();
+    auto files = folder.findChildFiles(juce::File::findFiles, false, "*.json");
+    files.sort();
+
+    int id = factoryPresetCount + 1;
+    for (auto& file : files)
+    {
+        auto name = file.getFileNameWithoutExtension();
+        userPresetNames.add(name);
+        userPresetFiles.add(file);
+        presetSelector.addItem(name, id++);
+    }
+
+    // Restore selection if possible
+    if (currentId > 0)
+        presetSelector.setSelectedId(currentId, juce::dontSendNotification);
+    else
+        presetSelector.setSelectedId(1, juce::dontSendNotification);
+}
+
+void GrainCosmosAudioProcessorEditor::saveUserPreset()
+{
+    auto dlg = std::make_shared<juce::AlertWindow>(
+        "Save Preset",
+        "Enter preset name:",
+        juce::AlertWindow::NoIcon);
+
+    dlg->addTextEditor("name", "", "Preset Name");
+    dlg->addButton("Save", 1);
+    dlg->addButton("Cancel", 0);
+
+    dlg->enterModalState(true, juce::ModalCallbackFunction::create(
+        [this, dlg](int result)
+        {
+            if (result == 0)
+                return;
+
+            auto name = dlg->getTextEditorContents("name").trim();
+            if (name.isEmpty())
+                return;
+
+            auto file = getPresetsFolder().getChildFile(name + ".json");
+
+            juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+            auto& params = processorRef.parameters;
+
+            // Save all parameters
+            juce::StringArray paramIDs = {
+                "delay_time", "grain_size", "envelope_shape",
+                "distortion_amount", "feedback", "feedback_saturation",
+                "chaos", "character", "mix", "freeze", "tempo_sync",
+                "grain_voices", "output_volume",
+                "limiter_threshold", "limiter_release"
+            };
+
+            for (auto& id : paramIDs)
+            {
+                if (auto* p = params.getParameter(id))
+                {
+                    auto range = p->getNormalisableRange();
+                    float value = range.convertFrom0to1(p->getValue());
+                    obj->setProperty(id, value);
+                }
+            }
+
+            auto json = juce::JSON::toString(juce::var(obj.get()));
+            file.replaceWithText(json);
+
+            scanUserPresets();
+        }));
+}
+
+void GrainCosmosAudioProcessorEditor::loadUserPreset(const juce::File& file)
+{
+    auto json = juce::JSON::parse(file);
+    if (!json.isObject())
+        return;
+
+    auto& params = processorRef.parameters;
+
+    if (auto* obj = json.getDynamicObject())
+    {
+        for (auto& prop : obj->getProperties())
+        {
+            auto id = prop.name.toString();
+            float value = static_cast<float>(prop.value);
+
+            if (auto* p = params.getParameter(id))
+            {
+                auto range = p->getNormalisableRange();
+                p->setValueNotifyingHost(range.convertTo0to1(value));
+            }
+        }
     }
 }
 
