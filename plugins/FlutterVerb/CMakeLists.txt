@@ -1,31 +1,41 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.22)
 
-# Plugin formats: VST3, AU, Standalone
+project(FlutterVerb VERSION 1.0.0 LANGUAGES C CXX)
+
+add_subdirectory(JUCE)
+
 juce_add_plugin(FlutterVerb
     COMPANY_NAME "LexDev"
     PLUGIN_MANUFACTURER_CODE Lexd
     PLUGIN_CODE Fltv
     FORMATS VST3 AU Standalone
     PRODUCT_NAME "FlutterVerb"
-    NEEDS_WEB_BROWSER TRUE
+    NEEDS_WEB_BROWSER FALSE
+    COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-# Source files (minimal for Stage 2)
+# WebView UI is not used currently, so disable binary data linking
+# juce_add_binary_data(FlutterVerb_UIResources
+#     SOURCES
+#         Source/ui/public/index.html
+#         Source/ui/public/js/juce/index.js
+#         Source/ui/public/js/juce/check_native_interop.js
+# )
+
 target_sources(FlutterVerb
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
 )
 
-# Include paths
 target_include_directories(FlutterVerb
     PRIVATE
         Source
 )
 
-# Required JUCE modules
 target_link_libraries(FlutterVerb
     PRIVATE
+        # FlutterVerb_UIResources  ← commented out
         juce::juce_audio_basics
         juce::juce_audio_devices
         juce::juce_audio_formats
@@ -45,31 +55,11 @@ target_link_libraries(FlutterVerb
         juce::juce_recommended_warning_flags
 )
 
-# CRITICAL: Generate JuceHeader.h (JUCE 8 requirement)
 juce_generate_juce_header(FlutterVerb)
 
-# Compile definitions
 target_compile_definitions(FlutterVerb
     PUBLIC
         JUCE_VST3_CAN_REPLACE_VST2=0
-)
-
-# WebView UI Resources (Stage 5 - Phase 5.1)
-juce_add_binary_data(FlutterVerb_UIResources
-    SOURCES
-        Source/ui/public/index.html
-        Source/ui/public/js/juce/index.js
-        Source/ui/public/js/juce/check_native_interop.js
-)
-
-target_link_libraries(FlutterVerb
-    PRIVATE
-        FlutterVerb_UIResources
-)
-
-# WebView support (Stage 5 - Phase 5.1)
-target_compile_definitions(FlutterVerb
-    PUBLIC
-        JUCE_WEB_BROWSER=1
+        JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
 )

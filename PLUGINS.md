@@ -30,6 +30,7 @@
 | ClapMachine | 💡 Ideated | - | - | 2025-11-10 |
 | DriveVerb | 📦 Installed | 1.0.2 | Audio Effect (Reverb) | 2025-11-12 |
 | FlutterVerb | 📦 Installed | 1.0.3 | Audio Effect (Reverb) | 2025-11-12 |
+| GrainCosmos | 📦 Installed | 1.0.0 | Audio Effect (Granular Delay) | 2026-02-13 |
 | LushVerb | 💡 Ideated | - | Audio Effect (Reverb) | 2025-11-12 |
 | OrganicHats | 📦 Installed | 1.0.0 | Synth (Instrument) | 2025-11-12 |
 | DrumRoulette | 📦 Installed | 1.0.0 | Instrument (Drum Sampler) | 2025-11-12 |
