@@ -314,6 +314,12 @@ public:
         g.fillAll(juce::Colours::darkgrey);
     }
 
+    void setDefaultAxes(int xId, int yId)
+    {
+        xSelector.setSelectedId(xId, juce::sendNotification);
+        ySelector.setSelectedId(yId, juce::sendNotification);
+    }
+
 private:
     juce::AudioProcessorValueTreeState& parameters;
     XYPadComponent xyPad;

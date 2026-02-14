@@ -11,6 +11,7 @@ public:
 
     void resized() override;
     void paint(juce::Graphics& g) override;
+    void loadPreset(int presetId);
 
 private:
     GrainCosmosAudioProcessor& processorRef;
@@ -25,6 +26,8 @@ private:
     juce::Slider volumeSlider;
     juce::Slider thresholdSlider;
     juce::Slider releaseSlider;
+
+    juce::ComboBox presetSelector;
 
     juce::Label titleLabel;
     juce::Label mixLabel;

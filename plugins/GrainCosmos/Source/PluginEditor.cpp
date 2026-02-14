@@ -11,6 +11,17 @@ GrainCosmosAudioProcessorEditor::GrainCosmosAudioProcessorEditor(GrainCosmosAudi
     titleLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(titleLabel);
 
+    // Preset selector
+    presetSelector.addItem("Default", 1);
+    presetSelector.addItem("Subtle Texture", 2);
+    presetSelector.addItem("Glitch Machine", 3);
+    presetSelector.addItem("Fuzz Madness", 4);
+    presetSelector.addItem("Frozen Ambient", 5);
+    presetSelector.addItem("Rhythmic Delay", 6);
+    presetSelector.setSelectedId(1, juce::dontSendNotification);
+    presetSelector.onChange = [this]() { loadPreset(presetSelector.getSelectedId()); };
+    addAndMakeVisible(presetSelector);
+
     // Mix slider
     mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     mixSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 18);
@@ -76,7 +87,16 @@ GrainCosmosAudioProcessorEditor::GrainCosmosAudioProcessorEditor(GrainCosmosAudi
     addAndMakeVisible(xyPad3.get());
     addAndMakeVisible(xyPad4.get());
 
-    setSize(1200, 700);
+    // Pad 1: Chaos x Character
+    xyPad1->setDefaultAxes(1, 2);
+    // Pad 2: Delay Time x Grain Size
+    xyPad2->setDefaultAxes(4, 3);
+    // Pad 3: Envelope x Grain Voices
+    xyPad3->setDefaultAxes(8, 9);
+    // Pad 4: Feedback x Distortion
+    xyPad4->setDefaultAxes(5, 7);
+
+    setSize(1350, 700);
 }
 
 GrainCosmosAudioProcessorEditor::~GrainCosmosAudioProcessorEditor()
@@ -99,6 +119,12 @@ void GrainCosmosAudioProcessorEditor::resized()
 
     // Title on the left
     titleLabel.setBounds(header.removeFromLeft(150).reduced(10, 5));
+
+    // Preset selector between title and sliders
+    auto presetArea = header.removeFromLeft(160);
+    presetSelector.setBounds(presetArea.reduced(5, 15));
+
+    header.removeFromLeft(10);
 
     // Each slider row: label (35px) + slider (remaining)
     int sliderGroupWidth = 200;
@@ -148,5 +174,130 @@ void GrainCosmosAudioProcessorEditor::resized()
     xyPad2->setBounds(content.getX() + panelWidth + padding, content.getY(), panelWidth, panelHeight);
     xyPad3->setBounds(content.getX(), content.getY() + panelHeight + padding, panelWidth, panelHeight);
     xyPad4->setBounds(content.getX() + panelWidth + padding, content.getY() + panelHeight + padding, panelWidth, panelHeight);
+}
+
+void GrainCosmosAudioProcessorEditor::loadPreset(int presetId)
+{
+    auto& params = processorRef.parameters;
+
+    auto setParam = [&](const juce::String& id, float value)
+    {
+        if (auto* p = params.getParameter(id))
+        {
+            auto range = p->getNormalisableRange();
+            p->setValueNotifyingHost(range.convertTo0to1(value));
+        }
+    };
+
+    switch (presetId)
+    {
+        case 1: // Default
+            setParam("delay_time", 0.5f);
+            setParam("grain_size", 100.0f);
+            setParam("envelope_shape", 0.5f);
+            setParam("distortion_amount", 0.0f);
+            setParam("feedback", 40.0f);
+            setParam("feedback_saturation", 0.0f);
+            setParam("chaos", 20.0f);
+            setParam("character", 50.0f);
+            setParam("mix", 30.0f);
+            setParam("freeze", 0.0f);
+            setParam("tempo_sync", 0.0f);
+            setParam("grain_voices", 32.0f);
+            setParam("output_volume", 100.0f);
+            setParam("limiter_threshold", -1.0f);
+            setParam("limiter_release", 100.0f);
+            break;
+
+        case 2: // Subtle Texture
+            setParam("delay_time", 0.8f);
+            setParam("grain_size", 200.0f);
+            setParam("envelope_shape", 0.9f);
+            setParam("distortion_amount", 0.0f);
+            setParam("feedback", 25.0f);
+            setParam("feedback_saturation", 0.0f);
+            setParam("chaos", 10.0f);
+            setParam("character", 30.0f);
+            setParam("mix", 20.0f);
+            setParam("freeze", 0.0f);
+            setParam("tempo_sync", 0.0f);
+            setParam("grain_voices", 24.0f);
+            setParam("output_volume", 100.0f);
+            setParam("limiter_threshold", -1.0f);
+            setParam("limiter_release", 100.0f);
+            break;
+
+        case 3: // Glitch Machine
+            setParam("delay_time", 0.15f);
+            setParam("grain_size", 15.0f);
+            setParam("envelope_shape", 0.05f);
+            setParam("distortion_amount", 30.0f);
+            setParam("feedback", 60.0f);
+            setParam("feedback_saturation", 20.0f);
+            setParam("chaos", 85.0f);
+            setParam("character", 80.0f);
+            setParam("mix", 50.0f);
+            setParam("freeze", 0.0f);
+            setParam("tempo_sync", 0.0f);
+            setParam("grain_voices", 48.0f);
+            setParam("output_volume", 85.0f);
+            setParam("limiter_threshold", -3.0f);
+            setParam("limiter_release", 50.0f);
+            break;
+
+        case 4: // Fuzz Madness
+            setParam("delay_time", 0.4f);
+            setParam("grain_size", 80.0f);
+            setParam("envelope_shape", 0.3f);
+            setParam("distortion_amount", 70.0f);
+            setParam("feedback", 85.0f);
+            setParam("feedback_saturation", 75.0f);
+            setParam("chaos", 60.0f);
+            setParam("character", 70.0f);
+            setParam("mix", 65.0f);
+            setParam("freeze", 0.0f);
+            setParam("tempo_sync", 0.0f);
+            setParam("grain_voices", 40.0f);
+            setParam("output_volume", 70.0f);
+            setParam("limiter_threshold", -6.0f);
+            setParam("limiter_release", 80.0f);
+            break;
+
+        case 5: // Frozen Ambient
+            setParam("delay_time", 1.2f);
+            setParam("grain_size", 300.0f);
+            setParam("envelope_shape", 1.0f);
+            setParam("distortion_amount", 0.0f);
+            setParam("feedback", 70.0f);
+            setParam("feedback_saturation", 0.0f);
+            setParam("chaos", 15.0f);
+            setParam("character", 20.0f);
+            setParam("mix", 60.0f);
+            setParam("freeze", 1.0f);
+            setParam("tempo_sync", 0.0f);
+            setParam("grain_voices", 32.0f);
+            setParam("output_volume", 90.0f);
+            setParam("limiter_threshold", -2.0f);
+            setParam("limiter_release", 200.0f);
+            break;
+
+        case 6: // Rhythmic Delay
+            setParam("delay_time", 0.5f);
+            setParam("grain_size", 60.0f);
+            setParam("envelope_shape", 0.15f);
+            setParam("distortion_amount", 10.0f);
+            setParam("feedback", 55.0f);
+            setParam("feedback_saturation", 10.0f);
+            setParam("chaos", 5.0f);
+            setParam("character", 40.0f);
+            setParam("mix", 40.0f);
+            setParam("freeze", 0.0f);
+            setParam("tempo_sync", 1.0f);
+            setParam("grain_voices", 16.0f);
+            setParam("output_volume", 100.0f);
+            setParam("limiter_threshold", -1.0f);
+            setParam("limiter_release", 100.0f);
+            break;
+    }
 }
 
