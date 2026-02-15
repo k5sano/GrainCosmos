@@ -29,13 +29,57 @@ public:
 
     void setXParam(const juce::String& id) { xParamID = id; repaint(); }
     void setYParam(const juce::String& id) { yParamID = id; repaint(); }
+    void setBackgroundImage(const juce::Image& img) { backgroundImage = img; repaint(); }
+    void loadBackgroundImage()
+    {
+        chooser = std::make_unique<juce::FileChooser>("Select Image",
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
+                .getChildFile("plugin-freedom-system")
+                .getChildFile("plugins")
+                .getChildFile("GrainCosmos")
+                .getChildFile("pics"),
+            "*.png;*.jpg;*.jpeg;*.gif");
+
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (file.existsAsFile())
+                {
+                    juce::Image img = juce::PNGImageFormat().loadFrom(file);
+                    if (img.isNull())
+                        img = juce::JPEGImageFormat().loadFrom(file);
+                    if (!img.isNull())
+                    {
+                        backgroundImage = img;
+                        repaint();
+                    }
+                }
+            });
+    }
 
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Background
-        g.fillAll(juce::Colours::black);
+        // Background image or black
+        if (backgroundImage.isValid())
+        {
+            g.drawImageWithin(backgroundImage,
+                bounds.getX(), bounds.getY(),
+                bounds.getWidth(), bounds.getHeight(),
+                juce::RectanglePlacement::stretchToFit);
+        }
+        else
+        {
+            g.fillAll(juce::Colours::black);
+        }
+
+        // Semi-transparent overlay for better visibility
+        if (backgroundImage.isValid())
+        {
+            g.fillAll(juce::Colour(0, 0, 0).withAlpha(0.4f));
+        }
 
         // Border
         g.setColour(juce::Colours::grey);
@@ -152,6 +196,9 @@ private:
     juce::String xParamID = "chaos";
     juce::String yParamID = "character";
 
+    juce::Image backgroundImage;
+    std::unique_ptr<juce::FileChooser> chooser;
+
     std::vector<TrailDot> trailDots;
     static constexpr int trailLifetimeMs = 2000;
     static constexpr int maxTrailDots = 50;
@@ -255,6 +302,10 @@ public:
         addAndMakeVisible(xyPad);
         addAndMakeVisible(xSelector);
         addAndMakeVisible(ySelector);
+        addAndMakeVisible(loadImageButton);
+
+        loadImageButton.setButtonText("IMG");
+        loadImageButton.onClick = [this]() { xyPad.loadBackgroundImage(); };
 
         xSelector.addItem("Chaos", 1);
         xSelector.addItem("Character", 2);
@@ -305,6 +356,9 @@ public:
         ySelector.setBounds(bounds.getX() + spacing + dropdownWidth + spacing, bounds.getY() + 5,
                           dropdownWidth, dropdownHeight);
 
+        int buttonX = bounds.getX() + spacing + dropdownWidth + spacing + dropdownWidth + spacing;
+        loadImageButton.setBounds(buttonX, bounds.getY() + 5, 40, dropdownHeight);
+
         xyPad.setBounds(bounds.getX(), bounds.getY() + dropdownHeight + 10,
                        bounds.getWidth(), bounds.getHeight() - dropdownHeight - 10);
     }
@@ -326,6 +380,7 @@ private:
 
     juce::ComboBox xSelector;
     juce::ComboBox ySelector;
+    juce::TextButton loadImageButton;
 
     void updateXParam()
     {
