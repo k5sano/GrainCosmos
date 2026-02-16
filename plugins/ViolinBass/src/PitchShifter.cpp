@@ -1,6 +1,7 @@
 #include "PitchShifter.h"
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 PitchShifter::PitchShifter() = default;
 
@@ -76,10 +77,12 @@ void PitchShifter::createStretcher()
 
     // Essential options for violin-to-bass:
     options |= RubberBand::RubberBandStretcher::OptionProcessRealTime;  // Real-time mode
-    options |= RubberBand::RubberBandStretcher::OptionEngineFiner;      // R3 Finer engine
+    options |= RubberBand::RubberBandStretcher::OptionEngineFaster;      // R2 Faster engine (low latency)
+    // options |= RubberBand::RubberBandStretcher::OptionEngineFiner;  // R3 Finer engine (higher latency)
     options |= RubberBand::RubberBandStretcher::OptionWindowShort;      // Short window for low latency
     options |= RubberBand::RubberBandStretcher::OptionPitchHighConsistency; // High pitch consistency
     options |= RubberBand::RubberBandStretcher::OptionTransientsSmooth; // Smooth transients for lower latency
+    options |= RubberBand::RubberBandStretcher::OptionThreadingNever;   // Single thread for lower latency
 
     if (formantPreserved)
         options |= RubberBand::RubberBandStretcher::OptionFormantPreserved;
@@ -109,7 +112,9 @@ void PitchShifter::createStretcher()
     fprintf(stderr, "  Block size: %d\n", blockSize);
     fprintf(stderr, "  Engine version: %d\n", stretcher->getEngineVersion());
     fprintf(stderr, "  Preferred start pad: %zu\n", stretcher->getPreferredStartPad());
-    fprintf(stderr, "  Start delay: %d samples (%.1f ms)\n", startDelay, latencyMs);
+    fprintf(stderr, "  Start delay: %zu\n", stretcher->getStartDelay());
+    fprintf(stderr, "  Latency: %zu\n", stretcher->getLatency());
+    fprintf(stderr, "  Calculated startDelay: %d samples (%.1f ms)\n", startDelay, latencyMs);
     fprintf(stderr, "  Pitch scale: %.3f\n", pitchScale);
     fprintf(stderr, "  Formant preserved: %s\n", formantPreserved ? "yes" : "no");
 
