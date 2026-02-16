@@ -285,7 +285,8 @@ void DroneCosmosAudioProcessorEditor::saveGlobalPreset()
                 "osc_b_waveform", "osc_b_pitch", "osc_b_detune", "osc_b_level",
                 "osc_c_waveform", "osc_c_pitch", "osc_c_detune", "osc_c_level",
                 "osc_d_waveform", "osc_d_pitch", "osc_d_detune", "osc_d_level",
-                "self_mod", "cross_mod", "ring_mod", "chaos_mod",
+                "self_fb_phase", "self_fb_amp", "self_fb_delay", "self_fb_delay_time", "self_fb_pitch",
+                "cross_mod", "ring_mod", "chaos_mod",
                 "drone_pitch", "output_volume", "limiter_threshold", "limiter_release"
             };
 
@@ -395,7 +396,11 @@ void DroneCosmosAudioProcessorEditor::loadGlobalPreset(const juce::File& file)
         setParam("osc_d_pitch", 7.0f);
         setParam("osc_d_detune", 3.0f);
         setParam("osc_d_level", 50.0f);
-        setParam("self_mod", 0.0f);
+        setParam("self_fb_phase", 0.0f);
+        setParam("self_fb_amp", 0.0f);
+        setParam("self_fb_delay", 0.0f);
+        setParam("self_fb_delay_time", 5.0f);
+        setParam("self_fb_pitch", 0.0f);
         setParam("cross_mod", 0.0f);
         setParam("ring_mod", 0.0f);
         setParam("chaos_mod", 0.0f);

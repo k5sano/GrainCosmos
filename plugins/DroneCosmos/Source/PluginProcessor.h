@@ -10,6 +10,13 @@ struct OscillatorState
 
     // DC filter state (1st order highpass at ~20Hz)
     float dcFilterZ1 = 0.0f;
+
+    // Self-feedback states
+    float prevOutput = 0.0f;  // For AM feedback
+    static constexpr int maxDelaySamples = 2400;  // 50ms @ 48kHz
+    std::array<float, maxDelaySamples> delayBuffer{};
+    int delayWritePos = 0;
+    float delayReadPos = 0.0f;  // For interpolated readout
 };
 
 class DroneCosmosAudioProcessor : public juce::AudioProcessor

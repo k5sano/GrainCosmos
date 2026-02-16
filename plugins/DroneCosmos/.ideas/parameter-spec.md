@@ -24,34 +24,63 @@
 Default配置: A=Sine(root), B=Sine(+7cent), C=Saw(-1oct,-5cent), D=Square(+5th,+3cent)
 -> 起動時から豊かなドローンが鳴る
 
-## Modulation Matrix (6 params)
+## Modulation Matrix (10 params)
 
 | ID | Name | Range | Default | Description |
 |----|------|-------|---------|-------------|
 | mod_range | Modulation Range | Low/Mid/High | Mid | L=繊細/M=バランス/H=過激 |
 | mod_mode | Modulation Mode | 0.0 - 1.0 | 0.0 | 0.0=Drone(穏やか) / 1.0=Noise(過激) |
-| self_mod | Self Modulation | 0 - 100 | 0 | 各OSC自己FM量 |
+| self_fb_phase | Self FB Phase | 0 - 100 | 0 | 位相フィードバック（FM的） |
+| self_fb_amp | Self FB Amplitude | 0 - 100 | 0 | 振幅フィードバック（AM的） |
+| self_fb_delay | Self FB Delay | 0 - 100 | 0 | ディレイフィードバック（コム的） |
+| self_fb_delay_time | Self FB Delay Time | 0.1 - 50.0 | 5.0 | ms |
+| self_fb_pitch | Self FB Pitch Shift | -24 - +24 | 0 | semitones |
 | cross_mod | Cross Modulation | 0 - 100 | 0 | A<->B, C<->D相互FM |
 | ring_mod | Ring Modulation | 0 - 100 | 0 | A->B->C->D->A循環FM |
 | chaos_mod | Chaos Modulation | 0 - 100 | 0 | 変調のランダム揺らぎ |
 
+### Self Feedback System
+
+**self_fb_phase (Phase Feedback)**:
+- 出力を自分の位相増分にフィードバック
+- FM変調的：周波数が動的に変化
+- 倍音の生成、非線形なスペクトル変化
+
+**self_fb_amp (Amplitude Feedback)**:
+- 出力を自分の振幅にフィードバック
+- AM変調的：音量が出力値に応じて変動
+- トレモロ〜リングモッド的な効果
+- 実装: `output *= (1.0 + ampScale * prevOutput)`
+
+**self_fb_delay (Delay Feedback)**:
+- 出力を短いディレイバッファ経由で位相に戻す
+- ディレイ時間で帰還の音程が変わる
+- カルンギ/コムフィルター的な共鳴効果
+- バッファサイズ：最大50ms (2400サンプル@48kHz)
+
+**self_fb_pitch (Pitch Shift in Feedback)**:
+- フィードバック信号をピッチシフトしてから戻す
+- +12で1オクターブ上の信号が戻る（シマー的効果）
+- -12で1オクターブ下（サブオシレーター的効果）
+- 実装：リングバッファの読み出しレートを変更
+
 ### Modulation Range (mod_range)
 **Low (繊細なドローン向け)**:
-- self_mod: 0-100 → 変調指数 0-0.1
+- self_fb_*: 0-100 → 変調指数 0-0.1
 - cross_mod: 0-100 → 変調指数 0-0.2
 - ring_mod: 0-100 → 変調指数 0-0.2
 - chaos_mod: 0-100 → LFO振幅 0-0.05
 - 用途: 繊細なテクスチャ、環境音楽的なドローン
 
 **Mid (バランス)**:
-- self_mod: 0-100 → 変調指数 0-1.0
+- self_fb_*: 0-100 → 変調指数 0-1.0
 - cross_mod: 0-100 → 変調指数 0-2.0
 - ring_mod: 0-100 → 変調指数 0-2.0
 - chaos_mod: 0-100 → LFO振幅 0-0.3
 - 用途: 汎用的なドローンシンセサイザー
 
 **High (ノイズマシン)**:
-- self_mod: 0-100 → 変調指数 0-5.0
+- self_fb_*: 0-100 → 変調指数 0-5.0
 - cross_mod: 0-100 → 変調指数 0-10.0
 - ring_mod: 0-100 → 変調指数 0-10.0
 - chaos_mod: 0-100 → LFO振幅 0-2.0
@@ -104,7 +133,7 @@ mod_mode は mod_range で設定された範囲内でさらに Drone/Noise の�
 | osc_port | OSC Port | 9000 | 受信ポート |
 | osc_enabled | OSC Enable | OFF | ON/OFF |
 
-## Total: 39 automatable parameters + 2 settings
+## Total: 43 automatable parameters + 2 settings
 
 ## Gesture Mapping Defaults
 

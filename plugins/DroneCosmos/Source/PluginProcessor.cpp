@@ -91,6 +91,27 @@ juce::AudioProcessorValueTreeState::ParameterLayout DroneCosmosAudioProcessor::c
         juce::NormalisableRange<float>(0.0f, 100.0f), 0.0f,
         juce::AudioParameterFloatAttributes().withLabel("%")));
 
+    // Self Feedback (5 params)
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        "self_fb_phase", "Self FB Phase",
+        juce::NormalisableRange<float>(0.0f, 100.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        "self_fb_amp", "Self FB Amplitude",
+        juce::NormalisableRange<float>(0.0f, 100.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        "self_fb_delay", "Self FB Delay",
+        juce::NormalisableRange<float>(0.0f, 100.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(
+        "self_fb_delay_time", "Self FB Delay Time",
+        juce::NormalisableRange<float>(0.1f, 50.0f), 5.0f,
+        juce::AudioParameterFloatAttributes().withLabel("ms")));
+    layout.add(std::make_unique<juce::AudioParameterInt>(
+        "self_fb_pitch", "Self FB Pitch Shift",
+        -24, 24, 0));
+
     // Drone Pitch (1 param)
     layout.add(std::make_unique<juce::AudioParameterFloat>(
         "drone_pitch", "Drone Base Pitch",
@@ -137,6 +158,10 @@ void DroneCosmosAudioProcessor::prepareToPlay(double sampleRate, int samplesPerB
         osc.phase = 0.0f;
         osc.phaseIncrement = 0.0f;
         osc.dcFilterZ1 = 0.0f;
+        osc.prevOutput = 0.0f;
+        osc.delayBuffer.fill(0.0f);
+        osc.delayWritePos = 0;
+        osc.delayReadPos = 0.0f;
     }
 
     // Chaos LFO: slow random modulation (~0.5 Hz)
@@ -231,7 +256,11 @@ void DroneCosmosAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 
     auto* modRange = parameters.getRawParameterValue("mod_range");
     auto* modMode = parameters.getRawParameterValue("mod_mode");
-    auto* selfMod = parameters.getRawParameterValue("self_mod");
+    auto* selfFbPhase = parameters.getRawParameterValue("self_fb_phase");
+    auto* selfFbAmp = parameters.getRawParameterValue("self_fb_amp");
+    auto* selfFbDelay = parameters.getRawParameterValue("self_fb_delay");
+    auto* selfFbDelayTime = parameters.getRawParameterValue("self_fb_delay_time");
+    auto* selfFbPitch = parameters.getRawParameterValue("self_fb_pitch");
     auto* crossMod = parameters.getRawParameterValue("cross_mod");
     auto* ringMod = parameters.getRawParameterValue("ring_mod");
     auto* chaosMod = parameters.getRawParameterValue("chaos_mod");
@@ -303,7 +332,9 @@ void DroneCosmosAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     float noiseScale = modModeValue;
 
     // Base modulation amounts (normalized 0-1 from parameter)
-    float selfParam = *selfMod / 100.0f;
+    float selfFbPhaseParam = *selfFbPhase / 100.0f;
+    float selfFbAmpParam = *selfFbAmp / 100.0f;
+    float selfFbDelayParam = *selfFbDelay / 100.0f;
     float crossParam = *crossMod / 100.0f;
     float ringParam = *ringMod / 100.0f;
     float chaosParam = *chaosMod / 100.0f;
@@ -311,13 +342,17 @@ void DroneCosmosAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
     // Apply range-based scaling first, then mode-based scaling
     // Range scaling maps 0-100 parameter to the appropriate range
     // Mode scaling provides additional Drone/Noise interpolation
-    float selfRangeAmt = selfParam * 100.0f;  // Convert back to 0-100
+    float selfFbPhaseRangeAmt = selfFbPhaseParam * 100.0f;
+    float selfFbAmpRangeAmt = selfFbAmpParam * 100.0f;
+    float selfFbDelayRangeAmt = selfFbDelayParam * 100.0f;
     float crossRangeAmt = crossParam * 100.0f;
     float ringRangeAmt = ringParam * 100.0f;
     float chaosRangeAmt = chaosParam * 100.0f;
 
     // Apply range scales
-    float selfAmt = selfRangeAmt * rangeSelfScale * (0.3f * droneScale + 5.0f * noiseScale);
+    float selfFbPhaseAmt = selfFbPhaseRangeAmt * rangeSelfScale * (0.3f * droneScale + 5.0f * noiseScale);
+    float selfFbAmpAmt = selfFbAmpRangeAmt * rangeSelfScale * 0.5f;  // AM doesn't need as much
+    float selfFbDelayAmt = selfFbDelayRangeAmt * rangeSelfScale * (0.3f * droneScale + 5.0f * noiseScale);
     float crossAmt = crossRangeAmt * rangeCrossScale * (0.5f * droneScale + 8.0f * noiseScale);
     float ringAmt = ringRangeAmt * rangeRingScale * (0.5f * droneScale + 8.0f * noiseScale);
     float chaosAmt = chaosRangeAmt * rangeChaosScale * (0.1f * droneScale + 2.0f * noiseScale);
@@ -360,10 +395,11 @@ void DroneCosmosAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
             increments[i] = freqs[i] / static_cast<float>(currentSampleRate);
         }
 
-        // Generate oscillator outputs
+        // Generate oscillator outputs with extended self-feedback
         for (int i = 0; i < 4; ++i)
         {
-            float& phase = oscStates[i].phase;
+            auto& state = oscStates[i];
+            float& phase = state.phase;
             float waveParam = 0.0f;
             float level = 0.0f;
 
@@ -375,21 +411,65 @@ void DroneCosmosAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
                 case 3: waveParam = *oscDWaveform; level = levelD; break;
             }
 
-            oscOutputs[i] = generateWaveform(phase, waveParam) * level;
+            // a. Generate base waveform
+            float output = generateWaveform(phase, waveParam) * level;
 
-            // Self-modulation: oscillator output modulates its own phase
-            if (selfAmt > 0.0f)
+            // b. Apply AM feedback (self_fb_amp)
+            // Output modulates its own amplitude
+            if (selfFbAmpAmt > 0.0f)
             {
-                float mod = selfAmt * oscOutputs[i] * (1.0f + chaosValue);
-                phase += mod * 0.1f; // Scale down self-modulation
+                float amMod = 1.0f + selfFbAmpAmt * state.prevOutput * (1.0f + chaosValue);
+                output *= juce::jlimit(0.0f, 2.0f, amMod);  // Prevent negative gain
+            }
+
+            // c. Apply delay feedback (self_fb_delay)
+            // Read from delay buffer with pitch shift, write current output
+            if (selfFbDelayAmt > 0.0f)
+            {
+                float delayTimeMs = *selfFbDelayTime;
+                int pitchShiftSemitones = static_cast<int>(*selfFbPitch);
+                float pitchShiftRatio = std::pow(2.0f, pitchShiftSemitones / 12.0f);
+
+                // Calculate read position with pitch shift
+                float delaySamples = delayTimeMs * static_cast<float>(currentSampleRate) / 1000.0f;
+                float readPos = state.delayWritePos - delaySamples * pitchShiftRatio;
+                if (readPos < 0.0f)
+                    readPos += OscillatorState::maxDelaySamples;
+                if (readPos >= OscillatorState::maxDelaySamples)
+                    readPos -= OscillatorState::maxDelaySamples;
+
+                // Linear interpolation
+                int readPos0 = static_cast<int>(readPos);
+                int readPos1 = (readPos0 + 1) % OscillatorState::maxDelaySamples;
+                float frac = readPos - readPos0;
+                float delayedSample = state.delayBuffer[readPos0] * (1.0f - frac) + state.delayBuffer[readPos1] * frac;
+
+                // Apply delay feedback to phase
+                float delayMod = selfFbDelayAmt * delayedSample * (1.0f + chaosValue);
+                phase += delayMod * 0.05f;  // Scale down delay feedback
+
+                // Write current output to delay buffer
+                state.delayBuffer[state.delayWritePos] = output;
+                state.delayWritePos = (state.delayWritePos + 1) % OscillatorState::maxDelaySamples;
+            }
+
+            // d. Apply phase feedback (self_fb_phase) - FM-style
+            if (selfFbPhaseAmt > 0.0f)
+            {
+                float phaseMod = selfFbPhaseAmt * output * (1.0f + chaosValue);
+                phase += phaseMod * 0.1f;  // Scale down phase feedback
 
                 // Clamp phase to prevent runaway/NaN/Inf
-                // Ensure phase increment stays within reasonable bounds
                 if (phase < 0.0f)
                     phase = std::fmod(std::abs(phase), 1.0f);
                 if (phase > 0.5f)  // Nyquist/2 for safety
                     phase = 0.5f;
             }
+
+            // e. Store output for next sample's AM feedback
+            state.prevOutput = output;
+
+            oscOutputs[i] = output;
         }
 
         // Cross-modulation: A<->B, C<->D
